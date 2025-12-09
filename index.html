@@ -2,16 +2,25 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>D3 Test</title>
+  <title>Visualisation Green IT</title>
+
+  <!-- Import D3 -->
   <script src="https://d3js.org/d3.v7.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+  </style>
 </head>
+
 <body>
 
-<h1>Test D3</h1>
+  <h1>Test D3</h1>
 
-<script>
-  console.log("D3 version:", d3.version);
-</script>
+  <svg id="scatter" width="800" height="500"></svg>
+
+  <script src="src/charts/scatter.js"></script>
 
 </body>
 </html>
