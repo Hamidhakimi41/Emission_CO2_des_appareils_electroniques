@@ -1,63 +1,82 @@
-console.log("stacked loaded");
+console.log("stacked chart loaded V10");
 
-// on change svg → stackedSvg
-const stackedSvg = d3.select("#stacked");
-const width = +stackedSvg.attr("width");
-const height = +stackedSvg.attr("height");
+// On encapsule tout pour éviter les collisions globales
+(function () {
 
-const margin = { top: 40, right: 20, bottom: 60, left: 60 };
-const innerWidth = width - margin.left - margin.right;
-const innerHeight = height - margin.top - margin.bottom;
+    // Sélection du SVG du stacked chart
+    const stackedSvg = d3.select("#stacked");
+    const w = +stackedSvg.attr("width");
+    const h = +stackedSvg.attr("height");
 
-const g = stackedSvg.append("g")
-    .attr("transform", `translate(${margin.left}, ${margin.top})`);
+    const margin = { top: 40, right: 20, bottom: 60, left: 60 };
+    const innerWidth = w - margin.left - margin.right;
+    const innerHeight = h - margin.top - margin.bottom;
 
-d3.csv("data/stacked_data.csv").then(data => {
+    const g = stackedSvg.append("g")
+        .attr("transform", `translate(${margin.left}, ${margin.top})`);
 
-    const keys = ["gwp_manufacturing", "gwp_use", "gwp_transport", "gwp_eol"];
+    // Chargement des données
+    d3.csv("data/stacked_data.csv").then(data => {
 
-    data.forEach(d => {
-        keys.forEach(k => d[k] = +d[k]);
+        // Colonnes à empiler
+        const keys = ["gwp_manufacturing", "gwp_use", "gwp_transport", "gwp_eol"];
+
+        // Convertir en nombres
+        data.forEach(d => {
+            keys.forEach(k => d[k] = +d[k]);
+        });
+
+        // Calcul des barres empilées
+        const stack = d3.stack().keys(keys);
+        const stackedData = stack(data);
+
+        // Échelle X - noms des produits
+        const x = d3.scaleBand()
+            .domain(data.map(d => d.name))
+            .range([0, innerWidth])
+            .padding(0.3);
+
+        // Échelle Y - valeur totale
+        const y = d3.scaleLinear()
+            .domain([
+                0,
+                d3.max(data, d => keys.reduce((sum, k) => sum + d[k], 0))
+            ])
+            .nice()
+            .range([innerHeight, 0]);
+
+        // Palette de couleurs
+        const color = d3.scaleOrdinal()
+            .domain(keys)
+            .range(["#4daf4a", "#377eb8", "#ff7f00", "#984ea3"]);
+
+        // Axe X
+        g.append("g")
+            .attr("transform", `translate(0, ${innerHeight})`)
+            .call(d3.axisBottom(x));
+
+        // Axe Y
+        g.append("g")
+            .call(d3.axisLeft(y));
+
+        // Barres empilées
+        g.selectAll("g.layer")
+            .data(stackedData)
+            .enter()
+            .append("g")
+            .attr("class", "layer")
+            .attr("fill", d => color(d.key))
+            .selectAll("rect")
+            .data(d => d)
+            .enter()
+            .append("rect")
+            .attr("x", d => x(d.data.name))
+            .attr("y", d => y(d[1]))
+            .attr("height", d => y(d[0]) - y(d[1]))
+            .attr("width", x.bandwidth());
+
+    }).catch(err => {
+        console.error("Erreur CSV Stacked :", err);
     });
 
-    const stack = d3.stack().keys(keys);
-    const stackedData = stack(data);
-
-    const x = d3.scaleBand()
-        .domain(data.map(d => d.name))
-        .range([0, innerWidth])
-        .padding(0.3);
-
-    const y = d3.scaleLinear()
-        .domain([
-            0,
-            d3.max(data, d => keys.reduce((sum, k) => sum + d[k], 0))
-        ])
-        .range([innerHeight, 0]);
-
-    const color = d3.scaleOrdinal()
-        .domain(keys)
-        .range(["#4daf4a", "#377eb8", "#ff7f00", "#984ea3"]);
-
-    g.append("g")
-        .attr("transform", `translate(0, ${innerHeight})`)
-        .call(d3.axisBottom(x));
-
-    g.append("g")
-        .call(d3.axisLeft(y));
-
-    g.selectAll("g.layer")
-        .data(stackedData)
-        .enter()
-        .append("g")
-        .attr("class", "layer")
-        .attr("fill", d => color(d.key))
-        .selectAll("rect")
-        .data(d => d)
-        .enter()
-        .append("rect")
-        .attr("x", d => x(d.data.name))
-        .attr("y", d => y(d[1]))
-        .attr("height", d => y(d[0]) - y(d[1]))
-        .attr("width", x.bandwidth());
-});
+})();
