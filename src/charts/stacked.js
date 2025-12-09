@@ -77,6 +77,8 @@ console.log("stacked chart loaded V10");
             // --------------------
     // Légende
     // --------------------
+    console.log(">>> Ajout légende");
+
   
     const legend = stackedSvg.append("g")
     .attr("class", "legend")
