@@ -74,6 +74,38 @@ console.log("stacked chart loaded V10");
             .attr("y", d => y(d[1]))
             .attr("height", d => y(d[0]) - y(d[1]))
             .attr("width", x.bandwidth());
+            // --------------------
+    // Légende
+    // --------------------
+    const legend = stackedSvg.append("g")
+        .attr("class", "legend")
+        .attr("transform", `translate(${margin.left + innerWidth + 20}, ${margin.top})`);
+
+    const legendItems = [
+        { label: "Fabrication", color: "#4daf4a" },
+        { label: "Usage", color: "#377eb8" },
+        { label: "Transport", color: "#ff7f00" },
+        { label: "Fin de vie", color: "#984ea3" }
+    ];
+
+    legend.selectAll("rect")
+        .data(legendItems)
+        .enter()
+        .append("rect")
+        .attr("x", 0)
+        .attr("y", (d, i) => i * 25)
+        .attr("width", 18)
+        .attr("height", 18)
+        .attr("fill", d => d.color);
+
+    legend.selectAll("text")
+        .data(legendItems)
+        .enter()
+        .append("text")
+        .attr("x", 30)
+        .attr("y", (d, i) => i * 25 + 14)
+        .style("font-size", "14px")
+        .text(d => d.label);
 
     }).catch(err => {
         console.error("Erreur CSV Stacked :", err);
