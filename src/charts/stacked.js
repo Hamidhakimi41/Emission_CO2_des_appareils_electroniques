@@ -77,9 +77,11 @@ console.log("stacked chart loaded V10");
             // --------------------
     // Légende
     // --------------------
+  
     const legend = stackedSvg.append("g")
-        .attr("class", "legend")
-        .attr("transform", `translate(${margin.left + innerWidth + 20}, ${margin.top})`);
+    .attr("class", "legend")
+    .attr("transform", "translate(10, 10)");
+
 
     const legendItems = [
         { label: "Fabrication", color: "#4daf4a" },
