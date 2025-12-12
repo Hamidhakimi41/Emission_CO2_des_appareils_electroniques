@@ -1,118 +1,110 @@
-console.log("stacked chart loaded V10");
+const svg = d3.select("#stacked");
+const width = +svg.attr("width");
+const height = +svg.attr("height");
 
-// On encapsule tout pour éviter les collisions globales
-(function () {
+const margin = { top: 50, right: 30, bottom: 80, left: 70 };
+const innerWidth = width - margin.left - margin.right;
+const innerHeight = height - margin.top - margin.bottom;
 
-    // Sélection du SVG du stacked chart
-    const stackedSvg = d3.select("#stacked");
-    const w = +stackedSvg.attr("width");
-    const h = +stackedSvg.attr("height");
+const g = svg.append("g")
+    .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    const margin = { top: 40, right: 20, bottom: 60, left: 60 };
-    const innerWidth = w - margin.left - margin.right;
-    const innerHeight = h - margin.top - margin.bottom;
+// Phases du cycle de vie
+const keys = ["manufacturing", "use", "transport", "eol"];
 
-    const g = stackedSvg.append("g")
-        .attr("transform", `translate(${margin.left}, ${margin.top})`);
+// Couleurs
+const color = d3.scaleOrdinal()
+    .domain(keys)
+    .range(["#2E7D32", "#66BB6A", "#AED581", "#C8E6C9"]);
 
-    // Chargement des données
-    d3.csv("data/stacked_data.csv").then(data => {
+d3.csv("boavizta_data_cleaned.csv", d => ({
+    subcategory: d.subcategory,
+    manufacturing: +d.gwp_manufacturing_kg,
+    use: +d.gwp_use_kg,
+    transport: +d.gwp_gwp_total * +d.gwp_transport_ratio,
+    eol: +d.gwp_total * +d.gwp_eol_ratio
+})).then(data => {
 
-        // Colonnes à empiler
-        const keys = ["gwp_manufacturing", "gwp_use", "gwp_transport", "gwp_eol"];
+    // --- AGRÉGATION PAR SUBCATEGORY ---
+    const aggregated = d3.rollups(
+        data,
+        v => ({
+            manufacturing: d3.mean(v, d => d.manufacturing),
+            use: d3.mean(v, d => d.use),
+            transport: d3.mean(v, d => d.transport),
+            eol: d3.mean(v, d => d.eol)
+        }),
+        d => d.subcategory
+    ).map(([subcategory, values]) => ({
+        subcategory,
+        ...values
+    }));
 
-        // Convertir en nombres
-        data.forEach(d => {
-            keys.forEach(k => d[k] = +d[k]);
-        });
+    // --- STACK ---
+    const stack = d3.stack().keys(keys);
+    const stackedData = stack(aggregated);
 
-        // Calcul des barres empilées
-        const stack = d3.stack().keys(keys);
-        const stackedData = stack(data);
+    // --- SCALES ---
+    const x = d3.scaleBand()
+        .domain(aggregated.map(d => d.subcategory))
+        .range([0, innerWidth])
+        .padding(0.2);
 
-        // Échelle X - noms des produits
-        const x = d3.scaleBand()
-            .domain(data.map(d => d.name))
-            .range([0, innerWidth])
-            .padding(0.3);
+    const y = d3.scaleLinear()
+        .domain([0, d3.max(aggregated, d =>
+            d.manufacturing + d.use + d.transport + d.eol
+        )])
+        .nice()
+        .range([innerHeight, 0]);
 
-        // Échelle Y - valeur totale
-        const y = d3.scaleLinear()
-            .domain([
-                0,
-                d3.max(data, d => keys.reduce((sum, k) => sum + d[k], 0))
-            ])
-            .nice()
-            .range([innerHeight, 0]);
+    // --- AXES ---
+    g.append("g")
+        .attr("transform", `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x))
+        .selectAll("text")
+        .attr("transform", "rotate(-40)")
+        .style("text-anchor", "end");
 
-        // Palette de couleurs
-        const color = d3.scaleOrdinal()
-            .domain(keys)
-            .range(["#4daf4a", "#377eb8", "#ff7f00", "#984ea3"]);
+    g.append("g")
+        .call(d3.axisLeft(y));
 
-        // Axe X
-        g.append("g")
-            .attr("transform", `translate(0, ${innerHeight})`)
-            .call(d3.axisBottom(x));
+    // --- BARS ---
+    g.selectAll(".layer")
+        .data(stackedData)
+        .join("g")
+        .attr("fill", d => color(d.key))
+        .selectAll("rect")
+        .data(d => d)
+        .join("rect")
+        .attr("x", d => x(d.data.subcategory))
+        .attr("y", d => y(d[1]))
+        .attr("height", d => y(d[0]) - y(d[1]))
+        .attr("width", x.bandwidth());
 
-        // Axe Y
-        g.append("g")
-            .call(d3.axisLeft(y));
+    // --- TITRE ---
+    svg.append("text")
+        .attr("x", width / 2)
+        .attr("y", 30)
+        .attr("text-anchor", "middle")
+        .style("font-size", "16px")
+        .text("Répartition de l’empreinte carbone par cycle de vie");
 
-        // Barres empilées
-        g.selectAll("g.layer")
-            .data(stackedData)
-            .enter()
-            .append("g")
-            .attr("class", "layer")
-            .attr("fill", d => color(d.key))
-            .selectAll("rect")
-            .data(d => d)
-            .enter()
-            .append("rect")
-            .attr("x", d => x(d.data.name))
-            .attr("y", d => y(d[1]))
-            .attr("height", d => y(d[0]) - y(d[1]))
-            .attr("width", x.bandwidth());
-            // --------------------
-    // Légende
-    // --------------------
-    console.log(">>> Ajout légende");
+    // --- LÉGENDE ---
+    const legend = svg.append("g")
+        .attr("transform", `translate(${width - 180},${margin.top})`);
 
-  
-    const legend = stackedSvg.append("g")
-    .attr("class", "legend")
-    .attr("transform", "translate(10, 10)");
+    keys.forEach((key, i) => {
+        const row = legend.append("g")
+            .attr("transform", `translate(0, ${i * 20})`);
 
+        row.append("rect")
+            .attr("width", 12)
+            .attr("height", 12)
+            .attr("fill", color(key));
 
-    const legendItems = [
-        { label: "Fabrication", color: "#4daf4a" },
-        { label: "Usage", color: "#377eb8" },
-        { label: "Transport", color: "#ff7f00" },
-        { label: "Fin de vie", color: "#984ea3" }
-    ];
-
-    legend.selectAll("rect")
-        .data(legendItems)
-        .enter()
-        .append("rect")
-        .attr("x", 0)
-        .attr("y", (d, i) => i * 25)
-        .attr("width", 18)
-        .attr("height", 18)
-        .attr("fill", d => d.color);
-
-    legend.selectAll("text")
-        .data(legendItems)
-        .enter()
-        .append("text")
-        .attr("x", 30)
-        .attr("y", (d, i) => i * 25 + 14)
-        .style("font-size", "14px")
-        .text(d => d.label);
-
-    }).catch(err => {
-        console.error("Erreur CSV Stacked :", err);
+        row.append("text")
+            .attr("x", 20)
+            .attr("y", 10)
+            .text(key);
     });
-
-})();
+});
