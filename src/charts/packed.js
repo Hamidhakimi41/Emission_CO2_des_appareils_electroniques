@@ -144,88 +144,126 @@
       let view;
   
       const node = svg.append("g")
-        .selectAll("circle")
-        .data(root.descendants().slice(1))
-        .join("circle")
-        .attr("fill", d => d.children ? color(d.depth) : "#E4FFF0")
-        .attr("stroke", d => d.children ? "rgba(20,60,30,0.20)" : "rgba(20,60,30,0.28)")
-        .attr("stroke-width", d => d.children ? 1 : 1.2)
-        .attr("pointer-events", d => !d.children ? "auto" : null)
-        .on("mouseover", function() { d3.select(this).attr("stroke", "rgba(20,60,30,0.75)"); })
-        .on("mouseout", function() { d3.select(this).attr("stroke", d => d.children ? "rgba(20,60,30,0.20)" : "rgba(20,60,30,0.28)"); })
+  .selectAll("g")
+  .data(root.descendants().slice(1))
+  .join("g")
+  // on garde le comportement de clic sur les nodes "parents" uniquement
+  .attr("pointer-events", d => d.children ? "auto" : "auto")
+  .on("mouseover", function (event, d) {
+    d3.select(this).select("circle.outer")
+      .attr("stroke", "rgba(20,60,30,0.75)");
+  })
+  .on("mouseout", function (event, d) {
+    d3.select(this).select("circle.outer")
+      .attr("stroke", d.children ? "rgba(20,60,30,0.20)" : "rgba(20,60,30,0.28)");
+  })
+  .on("mousemove", (event, d) => {
+    if (!d || d.children) return;
 
-        .on("mousemove", (event, d) => {
-          if (!d || d.children) return;
-  
-          tooltip.style("display", "block")
-            .style("left", (event.clientX + 14) + "px")
-            .style("top", (event.clientY + 14) + "px")
-            .html(`
-              <div style="font-weight:600; margin-bottom:4px;">${d.data.name}</div>
-              <div style="color:#333; margin-bottom:6px;">${d.data.manufacturer || ""}</div>
-              <div><b>Total</b>: ${formatKg(d.data.gwp_total)}</div>
-              <div><b>Fabrication</b>: ${formatKg(d.data.gwp_manufacturing_kg)} (${Math.round((d.data.gwp_manufacturing_ratio || 0) * 100)}%)</div>
-              <div><b>Usage</b>: ${formatKg(d.data.gwp_use_kg)} (${Math.round((d.data.gwp_use_ratio || 0) * 100)}%)</div>
-              <div style="margin-top:6px; color:#555;">
-                lifetime: ${d.data.lifetime || "—"} ans • yearly_tec: ${d.data.yearly_tec || "—"} kWh/an
-              </div>
-            `);
-        })
-        .on("mouseleave", () => tooltip.style("display", "none"))
-        .on("click", (event, d) => {
-          if (d.children) {
-            if (focus !== d) {
-              zoom(event, d);
-              event.stopPropagation();
-            }
-          } else {
-            // leaf click: you can later hook a side panel
-            event.stopPropagation();
-          }
-        });
-  
-      const label = svg.append("g")
-        .style("font", "11px system-ui, -apple-system, Segoe UI, Roboto, sans-serif")
-        .attr("pointer-events", "none")
-        .attr("text-anchor", "middle")
-        .selectAll("text")
-        .data(root.descendants())
-        .join("text")
-        .style("fill", "#1d1d1f")
-        .style("fill-opacity", d => d.parent === root ? 1 : 0)
-        .style("display", d => d.parent === root ? "inline" : "none")
-        .text(d => d.data.name);
-  
-      svg.on("click", (event) => zoom(event, root));
-      zoomTo([focus.x, focus.y, focus.r * 2]);
-  
-      function zoomTo(v) {
-        const k = width / v[2];
-        view = v;
-  
-        label.attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`);
-        node.attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`);
-        node.attr("r", d => d.r * k);
+    tooltip.style("display", "block")
+      .style("left", (event.clientX + 14) + "px")
+      .style("top", (event.clientY + 14) + "px")
+      .html(`
+        <div style="font-weight:600; margin-bottom:4px;">${d.data.name}</div>
+        <div style="color:#333; margin-bottom:6px;">${d.data.manufacturer || ""}</div>
+        <div><b>Total</b>: ${formatKg(d.data.gwp_total)}</div>
+        <div><b>Fabrication</b>: ${formatKg(d.data.gwp_manufacturing_kg)} (${Math.round((d.data.gwp_manufacturing_ratio || 0) * 100)}%)</div>
+        <div><b>Usage</b>: ${formatKg(d.data.gwp_use_kg)} (${Math.round((d.data.gwp_use_ratio || 0) * 100)}%)</div>
+        <div style="margin-top:6px; color:#555;">
+          lifetime: ${d.data.lifetime || "—"} ans • yearly_tec: ${d.data.yearly_tec || "—"} kWh/an
+        </div>
+      `);
+  })
+  .on("mouseleave", () => tooltip.style("display", "none"))
+  .on("click", (event, d) => {
+    if (d.children) {
+      if (focus !== d) {
+        zoom(event, d);
+        event.stopPropagation();
       }
-  
-      function zoom(event, d) {
-        const focus0 = focus;
-        focus = d;
-  
-        const transition = svg.transition()
-          .duration(event && event.altKey ? 7500 : 750)
-          .tween("zoom", () => {
-            const i = d3.interpolateZoom(view, [focus.x, focus.y, focus.r * 2]);
-            return t => zoomTo(i(t));
-          });
-  
-        label
-          .filter(function (d) { return d.parent === focus || this.style.display === "inline"; })
-          .transition(transition)
-          .style("fill-opacity", d => d.parent === focus ? 1 : 0)
-          .on("start", function (d) { if (d.parent === focus) this.style.display = "inline"; })
-          .on("end", function (d) { if (d.parent !== focus) this.style.display = "none"; });
-      }
+    } else {
+      // leaf click: you can later hook a side panel
+      event.stopPropagation();
+    }
+  });
+
+// cercle extérieur (bulle)
+node.append("circle")
+  .attr("class", "outer")
+  .attr("fill", d => d.children ? color(d.depth) : "#E4FFF0")
+  .attr("stroke", d => d.children ? "rgba(20,60,30,0.20)" : "rgba(20,60,30,0.28)")
+  .attr("stroke-width", d => d.children ? 1 : 1.2);
+
+// cercle intérieur jaune (FABRICATION) uniquement pour les feuilles
+node.filter(d => !d.children)
+  .append("circle")
+  .attr("class", "manufacturing-core")
+  .attr("fill", "#FBF9BC")
+  .attr("opacity", 0.9)
+  .attr("pointer-events", "none");
+
+const label = svg.append("g")
+  .style("font-family", "'DM Sans', sans-serif")
+  .style("font-weight", 600)
+  .style("pointer-events", "none")
+  .attr("text-anchor", "middle")
+  .selectAll("text")
+  .data(root.descendants())
+  .join("text")
+  .style("fill", "#1d1d1f")
+  .style("fill-opacity", d => d.parent === root ? 1 : 0)
+  .style("display", d => d.parent === root ? "inline" : "none")
+  .text(d => d.data.name)
+  .style("font-size", d => {
+    if (d.depth === 1) return "20px"; // catégories (ex: Home Datacenter)
+    if (d.depth === 2) return "14px"; // subcategories
+    return "11px";                    // appareils
+  })
+  .style("fill", "#1B5E20") // vert profond cohérent avec le thème
+  .style("font-weight", d => d.depth === 1 ? 700 : 500);
+
+svg.on("click", (event) => zoom(event, root));
+zoomTo([focus.x, focus.y, focus.r * 2]);
+
+function zoomTo(v) {
+  const k = width / v[2];
+  view = v;
+
+  label.attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`);
+
+  node.attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`);
+
+  // rayon de la bulle extérieure
+  node.select("circle.outer")
+    .attr("r", d => d.r * k);
+
+  // rayon du disque jaune = proportion de fabrication (surface proportionnelle)
+  node.select("circle.manufacturing-core")
+    .attr("r", d => {
+      const ratio = Math.max(0, Math.min(1, d.data.gwp_manufacturing_ratio || 0));
+      return (d.r * k) * Math.sqrt(ratio);
+    });
+}
+
+function zoom(event, d) {
+  const focus0 = focus;
+  focus = d;
+
+  const transition = svg.transition()
+    .duration(event && event.altKey ? 7500 : 750)
+    .tween("zoom", () => {
+      const i = d3.interpolateZoom(view, [focus.x, focus.y, focus.r * 2]);
+      return t => zoomTo(i(t));
+    });
+
+  label
+    .filter(function (d) { return d.parent === focus || this.style.display === "inline"; })
+    .transition(transition)
+    .style("fill-opacity", d => d.parent === focus ? 1 : 0)
+    .on("start", function (d) { if (d.parent === focus) this.style.display = "inline"; })
+    .on("end", function (d) { if (d.parent !== focus) this.style.display = "none"; });
+}
+
     }
   
   })();
