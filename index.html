@@ -1,27 +1,116 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&display=swap" rel="stylesheet">
-
-
   <meta charset="UTF-8">
   <title>Visualisation Green IT</title>
 
-  <!-- Import D3 (UNE SEULE FOIS) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Montserrat:wght@600;700&family=DM+Sans:wght@500;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="styles.css">
+
   <script src="https://d3js.org/d3.v7.min.js"></script>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 
   <style>
     body {
       font-family: Arial, sans-serif;
       margin: 20px;
+      background-color: #fff; /* Le fond général reste blanc */
     }
 
     h1, h2 {
       margin-top: 40px;
+    }
+
+    /* --- STYLES SPÉCIFIQUES À LA WORLD MAP --- */
+    /* On isole le style "Dark Mode" uniquement dans ce bloc */
+    #world-map-wrapper {
+        background-color: #050505;
+        color: #eee;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        text-align: center;
+        margin-top: 60px;
+        margin-bottom: 50px;
+    }
+
+    #world-map-wrapper h2 {
+        color: #fff;
+        letter-spacing: 1px;
+        margin-top: 0;
+        margin-bottom: 20px;
+    }
+
+    /* Menu déroulant de la carte */
+    #map-controls {
+        background: #222;
+        display: inline-block;
+        padding: 10px 20px;
+        border-radius: 8px;
+        border: 1px solid #444;
+        margin-bottom: 20px;
+    }
+
+    #map-controls select {
+        background: #333;
+        color: white;
+        padding: 5px;
+        border: 1px solid #555;
+        border-radius: 4px;
+    }
+
+    /* Conteneur SVG de la carte */
+    #map-container {
+        position: relative;
+        box-shadow: 0 0 30px rgba(0,0,0,0.5);
+        border-radius: 4px;
+        background-color: #000; 
+        overflow: hidden;
+        margin: 0 auto;
+    }
+
+    /* Styles SVG internes à la carte */
+    .country {
+        fill: #151515;      
+        stroke: #333;       
+        stroke-width: 0.5px;
+    }
+
+    .flow-line {
+        fill: none;
+        stroke: #ffd700;
+        stroke-linecap: round;
+        opacity: 0.6;
+        transition: stroke-width 0.3s, opacity 0.3s;
+    }
+    
+    .flow-line:hover {
+        stroke: #fff !important;
+        stroke-opacity: 1 !important;
+        cursor: pointer;
+        z-index: 1000;
+    }
+
+    /* Tooltip de la carte */
+    .map-tooltip {
+        position: absolute;
+        background: rgba(20, 20, 20, 0.95);
+        color: #fff;
+        border: 1px solid #ffd700; 
+        padding: 8px 12px;
+        border-radius: 4px;
+        pointer-events: none;
+        opacity: 0;
+        font-size: 13px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.8);
+        line-height: 1.5;
+        z-index: 100;
+        text-align: left;
     }
   </style>
 </head>
@@ -30,32 +119,20 @@
 
   <h1>Projet Data Visualisation – Green IT</h1>
 
-  <!-- =========================
-       SCATTER PLOT
-  ========================== -->
   <h2>Scatter plot</h2>
   <svg id="scatter" width="800" height="500"></svg>
   <script src="src/charts/scatter.js"></script>
 
-  <!-- =========================
-       STACKED BAR CHART
-  ========================== -->
   <h2>Stacked Bar Chart</h2>
   <svg id="stacked" width="1000" height="500"></svg>
   <script src="src/charts/stacked.js"></script>
 
-  <!-- =========================
-       BUBBLE PACK (ZOOMABLE)
-  ========================== -->
   <h2>Bubble chart – catégories / appareils</h2>
   <div style="padding:16px; border:1px solid rgba(0,0,0,0.08); border-radius:16px; background:#F7FBF7;">
     <div id="pack"></div>
   </div>
   <script src="src/charts/packed.js"></script>
 
-  <!-- =========================
-       CARBON ROAD (PROTO)
-  ========================== -->
   <h2>Route carbone (prototype)</h2>
 
   <label for="deviceSelector"><strong>Type d’appareil :</strong></label>
@@ -80,6 +157,24 @@
 
   <svg id="carbon-road" width="1100" height="400"></svg>
   <script src="src/charts/carbonRoad.js"></script>
+
+
+  <div id="world-map-wrapper">
+      <h2>Data Flow Map : Assemblage & Distribution</h2>
+      
+      <div id="map-controls">
+          <label for="manufacturerSelect">Constructeur : </label>
+          <select id="manufacturerSelect">
+              <option value="all">-- Tous --</option>
+          </select>
+      </div>
+
+      <div id="map-container"></div>
+      
+      <div id="tooltip" class="map-tooltip"></div>
+  </div>
+
+  <script src="src/worldMap/worldMap.js"></script>
 
 </body>
 </html>
