@@ -19,6 +19,7 @@
     const g = svg.append("g")
         .attr("transform", `translate(${margin.left}, ${margin.top})`);
 
+    // Masque (Clip Path)
     svg.append("defs").append("clipPath")
         .attr("id", "chart-area-clip")
         .append("rect")
@@ -70,17 +71,24 @@
             .style("box-shadow", "0 0 5px rgba(0,0,0,0.2)");
     }
 
+    // --- ETAT ---
     let currentXMetric = 'weight'; 
-    let currentCategory = 'All';   
+    let currentCategory = 'All';
+    let currentSubCategory = 'All'; // <--- NOUVEAU
     let availableManufacturers = []; 
     let selectedManufacturers = new Set(); 
     let data = [];
+
+    // --- ELEMENTS DU DOM (accessibles globalement pour les updates) ---
+    let subCategorySelect;
 
     d3.dsv(";", "data/data_cleaned/boavizta_data_cleaned.csv").then(rawData => {
         rawData.forEach(d => {
             d.gwp_total = +d.gwp_total;
             d.weight = +d.weight;
             d.screen_size = +d.screen_size;
+            // S'assurer que subcategory existe, sinon mettre une string vide
+            d.subcategory = d.subcategory || ""; 
         });
 
         data = rawData;
@@ -92,6 +100,7 @@
             .style("margin-left", margin.left + "px")
             .style("font-family", "sans-serif");
 
+        // 1. AXE X
         controls.append("span").text("Axe X : ").style("font-weight", "bold");
         const xSelect = controls.append("select").on("change", function() {
             currentXMetric = this.value;
@@ -105,6 +114,8 @@
         controls.append("span").text("Catégorie : ").style("font-weight", "bold");
         const categorySelect = controls.append("select").on("change", function() {
             currentCategory = this.value;
+            currentSubCategory = 'All';
+            updateSubCategoryDropdown(); 
             updateContext(); 
         });
         const categories = ["All", ...new Set(data.map(d => d.category))];
@@ -114,17 +125,50 @@
             .attr("value", d => d)
             .text(d => d);
 
+        controls.append("span").html("&nbsp;&nbsp; | &nbsp;&nbsp;"); 
+
+        controls.append("span").text("Sous-catégorie : ").style("font-weight", "bold");
+        subCategorySelect = controls.append("select").on("change", function() {
+            currentSubCategory = this.value;
+            updateContext(); 
+        });
+        updateSubCategoryDropdown();
         updateContext();
 
     }).catch(error => {
         console.error("Erreur CSV :", error);
     });
 
+    function updateSubCategoryDropdown() {
+        let filteredSubCats = data;
+        if (currentCategory !== 'All') {
+            filteredSubCats = data.filter(d => d.category === currentCategory);
+        }
+
+        const subCategories = ["All", ...new Set(filteredSubCats.map(d => d.subcategory).filter(d => d !== ""))].sort();
+
+        const options = subCategorySelect.selectAll("option")
+            .data(subCategories);
+
+        options.exit().remove();
+
+        options.enter().append("option")
+            .merge(options)
+            .attr("value", d => d)
+            .text(d => d);
+
+        subCategorySelect.property("value", "All");
+        currentSubCategory = "All";
+    }
+
+
     function updateContext() {
         const validData = data.filter(d => {
             const validMetric = !isNaN(d[currentXMetric]) && d[currentXMetric] > 0;
             const validCategory = currentCategory === 'All' || d.category === currentCategory;
-            return validMetric && validCategory;
+            const validSubCategory = currentSubCategory === 'All' || d.subcategory === currentSubCategory;
+            
+            return validMetric && validCategory && validSubCategory;
         });
 
         availableManufacturers = [...new Set(validData.map(d => d.manufacturer))].sort();
@@ -137,10 +181,13 @@
         let contextData = data.filter(d => {
             const validMetric = !isNaN(d[currentXMetric]) && d[currentXMetric] > 0;
             const validCategory = currentCategory === 'All' || d.category === currentCategory;
-            return validMetric && validCategory;
+            const validSubCategory = currentSubCategory === 'All' || d.subcategory === currentSubCategory;
+
+            return validMetric && validCategory && validSubCategory;
         });
 
         const visibleData = contextData.filter(d => selectedManufacturers.has(d.manufacturer));
+
         const xMax = d3.max(visibleData, d => d[currentXMetric]) || d3.max(contextData, d => d[currentXMetric]) || 10;
         const yMax = d3.max(visibleData, d => d.gwp_total) || d3.max(contextData, d => d.gwp_total) || 100;
 
@@ -165,7 +212,6 @@
 
         circles.exit().transition().duration(500).attr("r", 0).remove();
 
-        // Update
         circles.transition().duration(1000)
             .attr("cx", d => xScale(d[currentXMetric]))
             .attr("cy", d => yScale(d.gwp_total))
@@ -174,7 +220,6 @@
             .attr("r", d => selectedManufacturers.has(d.manufacturer) ? 4 : 0) 
             .attr("pointer-events", d => selectedManufacturers.has(d.manufacturer) ? "all" : "none");
 
-        // Enter
         circles.enter().append("circle")
             .attr("cx", d => xScale(d[currentXMetric]))
             .attr("cy", d => yScale(d.gwp_total))
@@ -200,7 +245,8 @@
                 tooltip.transition().duration(200).style("opacity", .9);
                 tooltip.html(`
                     <strong>${d.manufacturer}</strong> - ${d.name}<br/>
-                    GWP: ${d.gwp_total}<br/>
+                    <span style="font-size:11px; color:#666">${d.category} / ${d.subcategory}</span><br/>
+                    GWP: ${d.gwp_total} kgCO2eq<br/> 
                     ${currentXMetric === 'weight' ? 'Poids: ' + d.weight + ' kg' : 'Écran: ' + d.screen_size + '"'}
                 `)
                 .style("left", (event.pageX + 10) + "px")
@@ -239,7 +285,6 @@
 
         const legendListWidth = 14 + 6 + 10 + 5 + maxItemTextWidth;
 
-        // Bouton
         const btnGroup = legend.append("g")
             .style("cursor", "pointer")
             .on("click", () => {
@@ -258,7 +303,7 @@
             });
 
         const btnText = btnGroup.append("text")
-            .text("Tout Selectionner / Désélectionner")
+            .text("Tout Sélectionner / Désélectionner")
             .style("font-weight", "bold")
             .style("fill", "#333")
             .style("font-size", "13px")
@@ -284,7 +329,6 @@
         const buttonXOffset = (legendListWidth - btnWidth) / 2;
         btnGroup.attr("transform", `translate(${buttonXOffset}, 0)`);
 
-        // Liste Items
         const legendItems = legend.selectAll(".legend-item")
             .data(availableManufacturers)
             .enter().append("g")
