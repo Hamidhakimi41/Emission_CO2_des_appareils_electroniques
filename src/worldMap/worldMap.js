@@ -175,7 +175,7 @@ Promise.all([
         mergedPaths.on("mouseover", (e, d) => {
             d3.select(e.currentTarget).style("stroke", "#fff").style("opacity", 1);
             tooltip.style("opacity", 1)
-                .html(`<strong style="color:#ffd700">${d.manufacturer}</strong><br>De: ${d.source} ➝ Vers: ${d.target}<br>Modèles: ${d.count}`);
+                .html(`<strong style="color:#ffd700">${d.manufacturer}</strong><br>Assemblage: ${d.source} ➝ Utilisation: ${d.target}<br>Modèles: ${d.count}`);
         })
         .on("mousemove", e => tooltip.style("left", (e.pageX+15)+"px").style("top", (e.pageY-20)+"px"))
         .on("mouseout", (e) => {
