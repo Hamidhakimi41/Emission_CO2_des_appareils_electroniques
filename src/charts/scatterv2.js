@@ -74,12 +74,11 @@
     // --- ETAT ---
     let currentXMetric = 'weight'; 
     let currentCategory = 'All';
-    let currentSubCategory = 'All'; // <--- NOUVEAU
+    let currentSubCategory = 'All'; 
     let availableManufacturers = []; 
     let selectedManufacturers = new Set(); 
     let data = [];
 
-    // --- ELEMENTS DU DOM (accessibles globalement pour les updates) ---
     let subCategorySelect;
 
     d3.dsv(";", "data/data_cleaned/boavizta_data_cleaned.csv").then(rawData => {
@@ -87,7 +86,6 @@
             d.gwp_total = +d.gwp_total;
             d.weight = +d.weight;
             d.screen_size = +d.screen_size;
-            // S'assurer que subcategory existe, sinon mettre une string vide
             d.subcategory = d.subcategory || ""; 
         });
 
@@ -100,10 +98,10 @@
             .style("margin-left", margin.left + "px")
             .style("font-family", "sans-serif");
 
-        // 1. AXE X
         controls.append("span").text("Axe X : ").style("font-weight", "bold");
         const xSelect = controls.append("select").on("change", function() {
             currentXMetric = this.value;
+            updateSubCategoryDropdown(); 
             updateContext(); 
         });
         xSelect.append("option").attr("value", "weight").text("Poids (kg)");
@@ -132,6 +130,8 @@
             currentSubCategory = this.value;
             updateContext(); 
         });
+        
+        // Initialisation
         updateSubCategoryDropdown();
         updateContext();
 
@@ -140,12 +140,15 @@
     });
 
     function updateSubCategoryDropdown() {
-        let filteredSubCats = data;
+        
+        let validData = data;
         if (currentCategory !== 'All') {
-            filteredSubCats = data.filter(d => d.category === currentCategory);
+            validData = validData.filter(d => d.category === currentCategory);
         }
 
-        const subCategories = ["All", ...new Set(filteredSubCats.map(d => d.subcategory).filter(d => d !== ""))].sort();
+        validData = validData.filter(d => !isNaN(d[currentXMetric]) && d[currentXMetric] > 0);
+
+        const subCategories = ["All", ...new Set(validData.map(d => d.subcategory).filter(d => d !== ""))].sort();
 
         const options = subCategorySelect.selectAll("option")
             .data(subCategories);
@@ -157,8 +160,12 @@
             .attr("value", d => d)
             .text(d => d);
 
-        subCategorySelect.property("value", "All");
-        currentSubCategory = "All";
+        if (!subCategories.includes(currentSubCategory)) {
+            currentSubCategory = "All";
+            subCategorySelect.property("value", "All");
+        } else {
+            subCategorySelect.property("value", currentSubCategory);
+        }
     }
 
 
