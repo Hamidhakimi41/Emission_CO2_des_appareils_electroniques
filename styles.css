@@ -22,3 +22,68 @@ body {
     margin-bottom: 14px;
   }
   
+  .pack-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 16px;
+    align-items: start;
+  }
+  
+  .pack-left {
+    padding: 16px;
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 16px;
+    background: #F7FBF7;
+  }
+  
+  .pack-right {
+    position: sticky;
+    top: 16px;
+  }
+  
+  .pack-legend, .pack-panel {
+    padding: 12px;
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 14px;
+    background: #ffffff;
+    margin-bottom: 12px;
+  }
+  
+  .legend-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin: 8px 0;
+    font-family: Inter, Arial, sans-serif;
+    font-size: 13px;
+    color: #1b1b1b;
+  }
+  
+  .swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    display: inline-block;
+    border: 1px solid rgba(0,0,0,0.12);
+  }
+  
+
+  .panel-title {
+    font-family: Montserrat, Arial, sans-serif;
+    font-weight: 700;
+    color: #1B5E20;
+    margin-bottom: 10px;
+  }
+  
+  .panel-hint {
+    margin-top: 10px;
+    font-family: Inter, Arial, sans-serif;
+    font-size: 12px;
+    color: #555;
+  }
+  
+  #panelBars svg {
+    width: 100%;
+    height: auto;
+  }
+  
