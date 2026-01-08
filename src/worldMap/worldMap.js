@@ -1,11 +1,10 @@
 {
-
-    const mapWidth = 960;
-    const mapHeight = 600;
+    const mapWidth = 400;
+    const mapHeight = 250;
     
-    const csvPath = 'data/data_cleaned/boavizta_data_cleaned.csv';
+    const csvPath = '../../data/data_cleaned/boavizta_data_cleaned.csv';
 
-    // --- CONFIGURATION ---
+    // On uniformise les noms
     const nameMapping = {
         "China": "CN", "Peoples Republic of China": "CN", "CN": "CN",
         "United States": "US", "United States of America": "US", "USA": "US", "US": "US",
@@ -20,77 +19,81 @@
         "TW": [121.0, 23.5], "KR": [127.5, 36.0], "VN": [108.0, 14.0]
     };
 
+    // Labels
+    const countryLabels = {
+        "CN": "Chine", "US": "États-Unis", "DE": "Allemagne",
+        "KR": "KR", "VN": "Vietnam", "TW": "Taïwan"
+    };
+
     const globalAnchors = [[-100, 40], [-60, -20], [20, 10], [140, -25], [100, 50], [10, 50]];
-
-    // --- SETUP SVG ---
-    // On vide d'abord le conteneur pour éviter les doublons lors des rechargements
-    d3.select('#map-container').html("");
-
-    const svg = d3.select('#map-container').append('svg')
-        .attr('width', mapWidth)
-        .attr('height', mapHeight)
-        .style("background", "#050505");
-
-    const g = svg.append('g');
-
-    const zoom = d3.zoom()
-        .scaleExtent([1, 8]) 
-        .on("zoom", (event) => {
-            g.attr("transform", event.transform);
-        });
-
-    svg.call(zoom); 
-
-    // Calques
-    const gMap = g.append('g');
-    const gFlows = g.append('g');
-    const gParticles = g.append('g');
-    const gDots = g.append('g');
     const tooltip = d3.select("#tooltip");
 
-    // Projection
-    const projection = d3.geoMercator().scale(130).translate([mapWidth / 2, mapHeight / 1.5]);
+    const projection = d3.geoMercator().scale(55).translate([mapWidth / 2, mapHeight / 1.6]);
     const path = d3.geoPath().projection(projection);
-    const widthScale = d3.scaleSqrt().range([0.5, 3]); 
+    const widthScale = d3.scaleSqrt().range([0.5, 4]); 
 
-    // --- CHARGEMENT ---
-    console.log("--> WorldMap: Démarrage du chargement...");
+    // Petite fonction pour animer des points blancs pour montrer qu'il y a un flux
+    function animateParticles(svgContainer, pathSelection) {
+        let gParticles = svgContainer.select(".particles-layer");
+        if (gParticles.empty()) {
+            gParticles = svgContainer.append("g").attr("class", "particles-layer");
+        }
+        gParticles.selectAll(".particle").remove(); // Nettoyage
+
+        pathSelection.each(function(d) {
+            const pathNode = this;
+            const pathLength = pathNode.getTotalLength();
+            if (!pathLength) return;
+
+            // Création du point blanc
+            const particle = gParticles.append("circle")
+                .attr("class", "particle")
+                .attr("r", 1.5) // Petit point
+                .attr("fill", "#fff")
+                .style("pointer-events", "none")
+                .style("filter", "drop-shadow(0 0 2px white)");
+
+            repeat();
+
+            function repeat() {
+                particle.transition()
+                    .duration(2000 + Math.random() * 1500) 
+                    .ease(d3.easeLinear)
+                    .attrTween("transform", function() {
+                        return function(t) {
+                            const p = pathNode.getPointAtLength(t * pathLength);
+                            return `translate(${p.x},${p.y})`;
+                        };
+                    })
+                    .on("end", repeat); // Boucle infinie
+            }
+        });
+    }
+
 
     Promise.all([
         d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'),
         d3.dsv(";", csvPath)
     ]).then(([mapData, rawData]) => {
 
-        console.log("--> WorldMap: Données chargées. Lignes CSV :", rawData.length);
+        console.log("worldMap: Données chargées.");
 
-        // 1. CARTE
-        const countries = topojson.feature(mapData, mapData.objects.countries);
-        gMap.selectAll('path').data(countries.features).join('path')
-            .attr('class', 'country')
-            .attr('d', path)
-            .style("fill", "#1a1a1a")
-            .style("stroke", "#333")
-            .style("stroke-width", "0.5px");
+        const countriesGeo = topojson.feature(mapData, mapData.objects.countries);
 
-        // 2. NETTOYAGE
+        // NETTOYAGE
         const cleanData = rawData.filter(d => {
             const keys = Object.keys(d);
             const keyAssembly = keys.find(k => k.trim().toLowerCase().includes("assembly"));
             const keyUse = keys.find(k => k.trim().toLowerCase().includes("use_location"));
             const keyManuf = keys.find(k => k.trim().toLowerCase().includes("manufacturer"));
 
-            const valAssembly = keyAssembly ? d[keyAssembly] : null;
-            const valUse = keyUse ? d[keyUse] : null;
-            const valManuf = keyManuf ? d[keyManuf] : null;
+            if (!d[keyAssembly] || !d[keyUse]) return false;
 
-            if (!valAssembly || !valUse) return false;
-
-            let s = valAssembly.trim();
-            let t = valUse.trim();
+            let s = d[keyAssembly].trim();
+            let t = d[keyUse].trim();
             d.srcCode = nameMapping[s] || s;
             d.trgCode = nameMapping[t] || t;
-            
-            d.manufacturer = valManuf ? valManuf.trim() : "Inconnu";
+            d.manufacturer = d[keyManuf] ? d[keyManuf].trim() : "Inconnu";
 
             const sk = regionCoords[d.srcCode];
             const tk = regionCoords[d.trgCode] || d.trgCode === "WW";
@@ -98,139 +101,119 @@
             return d.manufacturer && sk && tk;
         });
 
-        console.log("--> WorldMap: Données valides après nettoyage :", cleanData.length);
-
-        // 3. MENU
         const manufacturers = Array.from(new Set(cleanData.map(d => d.manufacturer))).sort();
-        const select = d3.select("#manufacturerSelect");
-        select.selectAll("option:not([value='all'])").remove();
-        manufacturers.forEach(m => { if(m) select.append("option").text(m).attr("value", m); });
+        const container = d3.select("#grid-container");
 
-        // 4. LOGIQUE DES LIENS
-        function getLinks(dataSubset) {
-            const rollup = d3.rollup(dataSubset, v => v.length, d => d.manufacturer, d => d.srcCode, d => d.trgCode);
+        // BOUCLE CRÉATION CARTES
+        manufacturers.forEach(manuf => {
+            const card = container.append("div").attr("class", "map-card");
+            card.append("h3").attr("class", "map-title").text(manuf);
+            
+            const svg = card.append("svg")
+                .attr("width", mapWidth)
+                .attr("height", mapHeight);
+
+            // Calques
+            const gMap = svg.append("g");
+            const gFlows = svg.append("g");
+            // Le calque particules sera créé par la fonction d'animation
+            const gDots = svg.append("g");
+            const gLabels = svg.append("g");
+
+            // Fond de carte
+            gMap.selectAll("path")
+                .data(countriesGeo.features)
+                .join("path")
+                .attr("class", "country")
+                .attr("d", path);
+
+            // Filtrage et calcul liens
+            const manufData = cleanData.filter(d => d.manufacturer === manuf);
+            const rollup = d3.rollup(manufData, v => v.length, d => d.srcCode, d => d.trgCode);
             const links = [];
-            for (const [manuf, sources] of rollup) {
-                for (const [src, targets] of sources) {
-                    for (const [trg, count] of targets) {
-                        const sPt = regionCoords[src];
-                        if (trg === "WW") {
-                            globalAnchors.forEach(anchor => {
-                                links.push({
-                                    manufacturer: manuf, source: src, target: "Monde (WW)",
-                                    sourceCoords: projection(sPt), targetCoords: projection(anchor),
-                                    count: count, id: Math.random()
-                                });
-                            });
-                        } else if (regionCoords[trg] && src !== trg) {
+            
+            for (const [src, targets] of rollup) {
+                for (const [trg, count] of targets) {
+                    const sPt = regionCoords[src];
+                    if (trg === "WW") {
+                        globalAnchors.forEach(anchor => {
                             links.push({
-                                manufacturer: manuf, source: src, target: trg,
-                                sourceCoords: projection(sPt), targetCoords: projection(regionCoords[trg]),
-                                count: count, id: Math.random()
+                                source: src, target: "Monde (WW)",
+                                sc: projection(sPt), tc: projection(anchor),
+                                count: count
                             });
-                        }
+                        });
+                    } else if (regionCoords[trg] && src !== trg) {
+                        links.push({
+                            source: src, target: trg,
+                            sc: projection(sPt), tc: projection(regionCoords[trg]),
+                            count: count
+                        });
                     }
                 }
             }
-            return links;
-        }
 
-        // --- ANIMATION ---
-        function animateParticles(pathSelection) {
-            gParticles.selectAll(".particle").remove(); 
-
-            pathSelection.each(function(d) {
-                // Vérification de sécurité
-                if (!this.getTotalLength) return;
-                const length = this.getTotalLength();
-                if (!length) return;
-
-                const particle = gParticles.append("circle")
-                    .attr("class", "particle")
-                    .attr("r", 2)
-                    .attr("fill", "#fff") 
-                    .style("filter", "drop-shadow(0 0 3px white)"); 
-
-                repeat();
-
-                function repeat() {
-                    particle.transition()
-                        .duration(2000 + Math.random() * 1000)
-                        .ease(d3.easeLinear)
-                        .attrTween("transform", function() {
-                            return function(t) {
-                                const point = pathSelection.nodes()[pathSelection.data().indexOf(d)].getPointAtLength(t * length);
-                                return `translate(${point.x},${point.y})`;
-                            };
-                        })
-                        .on("end", repeat);
-                }
-            });
-        }
-
-        // 5. FONCTION DE MISE À JOUR
-        function update(selectedManuf) {
-            const filtered = selectedManuf === "all" ? cleanData : cleanData.filter(d => d.manufacturer === selectedManuf);
-            const links = getLinks(filtered);
-            
             const maxCount = d3.max(links, d => d.count) || 1;
             widthScale.domain([0, maxCount]);
 
-            // A. TRACÉ DES LIGNES
-            const paths = gFlows.selectAll(".flow-line")
-                .data(links, d => d.id); 
-
-            paths.exit().remove(); 
-
-            const enterPaths = paths.enter().append("path")
+            // Dessin Lignes
+            const paths = gFlows.selectAll("path")
+                .data(links)
+                .join("path")
                 .attr("class", "flow-line")
-                .style("fill", "none")
-                .style("stroke", "#ffd700")
-                .style("stroke-linecap", "round")
-                .style("opacity", 0.4);
-
-            const mergedPaths = paths.merge(enterPaths)
                 .attr("d", d => {
-                    const dx = d.targetCoords[0] - d.sourceCoords[0];
-                    const dy = d.targetCoords[1] - d.sourceCoords[1];
+                    const dx = d.tc[0] - d.sc[0];
+                    const dy = d.tc[1] - d.sc[1];
                     const dr = Math.sqrt(dx * dx + dy * dy) * 1.3;
-                    return `M${d.sourceCoords[0]},${d.sourceCoords[1]}A${dr},${dr} 0 0,1 ${d.targetCoords[0]},${d.targetCoords[1]}`;
+                    return `M${d.sc[0]},${d.sc[1]}A${dr},${dr} 0 0,1 ${d.tc[0]},${d.tc[1]}`;
                 })
                 .style("stroke-width", d => widthScale(d.count));
 
-            // Interaction
-            mergedPaths.on("mouseover", (e, d) => {
-                d3.select(e.currentTarget).style("stroke", "#fff").style("opacity", 1);
-                tooltip.style("opacity", 1)
-                    .html(`<strong style="color:#ffd700">${d.manufacturer}</strong><br>Assemblage: ${d.source} ➝ Utilisation: ${d.target}<br>Modèles: ${d.count}`);
-            })
-            .on("mousemove", e => tooltip.style("left", (e.pageX+15)+"px").style("top", (e.pageY-20)+"px"))
-            .on("mouseout", (e) => {
-                d3.select(e.currentTarget).style("stroke", "#ffd700").style("opacity", 0.4);
-                tooltip.style("opacity", 0);
+            // --- LANCEMENT DE L'ANIMATION POUR CETTE CARTE ---
+            animateParticles(svg, paths);
+
+            // Interaction Tooltip sur les lignes
+            paths.on("mouseover", (e, d) => {
+                    d3.select(e.currentTarget).style("stroke", "#fff").style("opacity", 1);
+                    tooltip.style("opacity", 1)
+                           .html(`<strong>${manuf}</strong><br>Assemblage : ${d.source}<br>Utilisation : ${d.target}<br>Nombre de modèles : ${d.count}`)
+                           .style("left", (e.pageX + 10) + "px")
+                           .style("top", (e.pageY - 20) + "px");
+                })
+                .on("mouseout", (e) => {
+                    d3.select(e.currentTarget).style("stroke", "#ffd700").style("opacity", 0.5);
+                    tooltip.style("opacity", 0);
+                });
+
+            // Dessin Points
+            gDots.selectAll(".dot-s").data(links).join("circle")
+                .attr("cx", d => d.sc[0]).attr("cy", d => d.sc[1])
+                .attr("r", 2.5).attr("fill", "#00ff00").style("pointer-events", "none");
+
+            gDots.selectAll(".dot-t").data(links.filter(d => d.target !== "Monde (WW)")).join("circle")
+                .attr("cx", d => d.tc[0]).attr("cy", d => d.tc[1])
+                .attr("r", 2.5).attr("fill", "#ff0000").style("pointer-events", "none");
+                
+            // Afficher les noms des pays
+            Object.entries(countryLabels).forEach(([code, label]) => {
+                 if(regionCoords[code]) {
+                     const p = projection(regionCoords[code]);
+                     gLabels.append("text")
+                        .attr("x", p[0]).attr("y", p[1] + 12)
+                        .text(label) 
+                        .attr("text-anchor", "middle")
+                        .style("fill", "#888")
+                        .style("font-size", "8px") 
+                        .style("font-family", "sans-serif")
+                        .style("pointer-events", "none")
+                        .style("text-shadow", "0 0 2px black");
+                 }
             });
 
-            // B. LANCER L'ANIMATION
-            animateParticles(mergedPaths);
-
-            // C. POINTS
-            gDots.selectAll("circle").remove();
-            
-            gDots.selectAll(".dot-s").data(links).enter().append("circle")
-                .attr("cx", d => d.sourceCoords[0]).attr("cy", d => d.sourceCoords[1])
-                .attr("r", 3).attr("fill", "#00ff00");
-            
-            gDots.selectAll(".dot-t").data(links.filter(d => !d.target.includes("WW"))).enter().append("circle")
-                .attr("cx", d => d.targetCoords[0]).attr("cy", d => d.targetCoords[1])
-                .attr("r", 3).attr("fill", "#ff0000");
-        }
-
-        update("all");
-        select.on("change", function(event) { update(event.target.value); });
+        }); // Fin boucle manufacturers
 
     }).catch(err => {
-        console.error("ERREUR CHARGEMENT WORLDMAP :", err);
-        d3.select('#map-container').html(`<p style="color:red; text-align:center; padding-top:20px;">Erreur : ${err.message}</p>`);
+        console.error(err);
+        d3.select("#grid-container").html(`<p style="color:red">Erreur chargement: ${err.message}</p>`);
     });
-
 }

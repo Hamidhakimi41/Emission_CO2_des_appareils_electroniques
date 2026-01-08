@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Comparaison Constructeurs - Small worldMap</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #050505;
+            color: #eee;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #ffd700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* --- NOUVEAU : CSS DE LA LÉGENDE --- */
+        .legend-container {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 40px;
+            font-size: 14px;
+            background: #111;
+            padding: 10px;
+            border-radius: 50px;
+            width: fit-content;
+            margin-left: auto;
+            margin-right: auto;
+            border: 1px solid #333;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        /* ---------------------------------- */
+
+        /* LE CONTENEUR GRILLE */
+        #grid-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center; /* Centre les cartes */
+        }
+
+        /* CHAQUE CARTE INDIVIDUELLE */
+        .map-card {
+            background-color: #000;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 10px;
+            width: 400px; /* Largeur fixe pour chaque carte */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            transition: transform 0.2s;
+            position: relative; /* Pour le positionnement des particules */
+        }
+
+        .map-card:hover {
+            border-color: #555;
+            transform: translateY(-5px);
+        }
+
+        .map-title {
+            text-align: center;
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #fff;
+            font-weight: 600;
+            border-bottom: 1px solid #222;
+            padding-bottom: 5px;
+        }
+
+        /* SVG */
+        svg {
+            display: block;
+            margin: 0 auto;
+            background: #0a0a0a;
+        }
+
+        .country {
+            fill: #1a1a1a;
+            stroke: #333;
+            stroke-width: 0.5px;
+        }
+
+        .flow-line {
+            fill: none;
+            stroke: #ffd700;
+            stroke-linecap: round;
+            opacity: 0.5;
+        }
+
+        /* Tooltip simple */
+        .tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.95);
+            color: #fff;
+            border: 1px solid #ffd700;
+            padding: 8px 12px;
+            border-radius: 4px;
+            pointer-events: none;
+            opacity: 0;
+            font-size: 12px;
+            z-index: 1000;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Flux d'assemblage et de distribution</h1>
+    
+    <div class="legend-container">
+        <div class="legend-item">
+            <span class="legend-dot" style="background-color: #00ff00; box-shadow: 0 0 5px #00ff00;"></span>
+            <span>Lieu d'Assemblage (Départ)</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-dot" style="background-color: #ff0000; box-shadow: 0 0 5px #ff0000;"></span>
+            <span>Lieu d'Utilisation (Arrivée)</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-dot" style="background-color: #fff; box-shadow: 0 0 5px #fff; animation: pulse 1s infinite alternate;"></span>
+            <span>Sens du flux</span>
+        </div>
+    </div>
+    <div id="grid-container"></div>
+    
+    <div id="tooltip" class="tooltip"></div>
+
+    <script src="worldMap.js"></script>
+</body>
+</html>
