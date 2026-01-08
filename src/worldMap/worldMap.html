@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Comparaison Constructeurs - Small worldMap</title>
+    <title>Comparaison des flux assemblage - utilisation pour les constructeurs </title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
@@ -27,7 +27,6 @@
             letter-spacing: 2px;
         }
 
-        /* --- NOUVEAU : CSS DE LA LÉGENDE --- */
         .legend-container {
             display: flex;
             justify-content: center;
@@ -55,26 +54,23 @@
             display: inline-block;
             margin-right: 8px;
         }
-        /* ---------------------------------- */
-
-        /* LE CONTENEUR GRILLE */
+       
         #grid-container {
             display: flex;
             flex-wrap: wrap;
             gap: 20px;
-            justify-content: center; /* Centre les cartes */
+            justify-content: center;
         }
 
-        /* CHAQUE CARTE INDIVIDUELLE */
         .map-card {
             background-color: #000;
             border: 1px solid #333;
             border-radius: 8px;
             padding: 10px;
-            width: 400px; /* Largeur fixe pour chaque carte */
+            width: 400px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.5);
             transition: transform 0.2s;
-            position: relative; /* Pour le positionnement des particules */
+            position: relative;
         }
 
         .map-card:hover {
@@ -92,7 +88,6 @@
             padding-bottom: 5px;
         }
 
-        /* SVG */
         svg {
             display: block;
             margin: 0 auto;
@@ -112,7 +107,6 @@
             opacity: 0.5;
         }
 
-        /* Tooltip simple */
         .tooltip {
             position: absolute;
             background: rgba(0,0,0,0.95);
