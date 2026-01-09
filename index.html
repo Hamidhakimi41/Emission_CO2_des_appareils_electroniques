@@ -11,7 +11,6 @@
   <meta charset="UTF-8">
   <title>Visualisation Green IT</title>
 
-  <!-- Import D3 (UNE SEULE FOIS) -->
   <script src="https://d3js.org/d3.v7.min.js"></script>
 
   <style>
@@ -30,32 +29,20 @@
 
   <h1>Projet Data Visualisation – Green IT</h1>
 
-  <!-- =========================
-       SCATTER PLOT
-  ========================== -->
   <h2>Scatter plot</h2>
   <svg id="scatter" width="800" height="500"></svg>
   <script src="src/charts/scatter.js"></script>
 
-  <!-- =========================
-       STACKED BAR CHART
-  ========================== -->
   <h2>Stacked Bar Chart</h2>
   <svg id="stacked" width="1000" height="500"></svg>
   <script src="src/charts/stacked.js"></script>
 
-  <!-- =========================
-       BUBBLE PACK (ZOOMABLE)
-  ========================== -->
   <h2>Bubble chart – catégories / appareils</h2>
   <div style="padding:16px; border:1px solid rgba(0,0,0,0.08); border-radius:16px; background:#F7FBF7;">
     <div id="pack"></div>
   </div>
   <script src="src/charts/packed.js"></script>
 
-  <!-- =========================
-       CARBON ROAD (PROTO)
-  ========================== -->
   <h2>Route carbone (prototype)</h2>
 
   <label for="deviceSelector"><strong>Type d’appareil :</strong></label>
@@ -80,6 +67,31 @@
 
   <svg id="carbon-road" width="1100" height="400"></svg>
   <script src="src/charts/carbonRoad.js"></script>
+
+  <hr style="margin-top: 60px; border: 0; border-top: 1px solid #ddd;">
+  
+  <h2>Cartographie des flux</h2>
+  
+  <div style="padding: 30px; background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; text-align: center; margin-bottom: 50px;">
+      <p style="margin-bottom: 20px; color: #555;">
+          Accéder à la vue comparative des flux d'assemblage et de distribution par constructeur (écrans scindés).
+      </p>
+      
+      <a href="src/worldMap/worldMap.html" target="_blank" style="
+          display: inline-block;
+          background-color: #007bff; 
+          color: white; 
+          padding: 14px 28px; 
+          text-decoration: none; 
+          border-radius: 6px; 
+          font-weight: bold;
+          font-family: 'Montserrat', sans-serif;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+          transition: background-color 0.2s;
+      ">
+           Ouvrir la carte des flux
+      </a>
+  </div>
 
 </body>
 </html>
