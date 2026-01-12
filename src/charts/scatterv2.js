@@ -1,385 +1,287 @@
-(function() {
+window.initScatter = function(containerSelector, sharedData, onHoverCallback) {
 
-    const svg = d3.select("#scatter2");
-    
-    if (svg.empty()) {
-        console.error("Erreur : L'élément #scatter2 n'a pas été trouvé dans le HTML.");
-        return;
-    }
+    const svgContainer = d3.select(containerSelector);
+    svgContainer.selectAll("*").remove();
 
-    const containerWidth = svg.node().getBoundingClientRect().width;
-    const width = containerWidth; 
-    const height = +svg.attr("height");
+    // --- SETUP DIMENSIONS ---
+    const containerNode = svgContainer.node();
+    const containerWidth = containerNode ? containerNode.getBoundingClientRect().width : 300;
+    const width = containerWidth || 300; 
+    const height = 480; // Un peu plus haut pour l'aération
+    svgContainer.attr("width", width).attr("height", height);
 
-    const margin = { top: 50, right: 180, bottom: 60, left: 100 };
-    
+    const margin = { top: 30, right: 20, bottom: 140, left: 50 }; // Bottom large pour légende
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
-    const g = svg.append("g")
+    const g = svgContainer.append("g")
         .attr("transform", `translate(${margin.left}, ${margin.top})`);
 
-    // Masque (Clip Path)
-    svg.append("defs").append("clipPath")
-        .attr("id", "chart-area-clip")
-        .append("rect")
-        .attr("x", -10) 
-        .attr("y", -10)
-        .attr("width", innerWidth + 20)
-        .attr("height", innerHeight + 20);
+    // --- STYLES SVG (Injectés ici pour éviter le CSS externe) ---
+    svgContainer.append("style").text(`
+        .axis-grid line { stroke: #e2e8f0; stroke-dasharray: 4; }
+        .axis-grid path { display: none; }
+        .axis-text { font-family: 'Inter', sans-serif; font-size: 11px; fill: #64748b; }
+        .domain { display: none; } /* Cache la ligne noire des axes */
+        .legend-chip:hover rect { stroke: #94a3b8; }
+    `);
 
+    // --- DATA PREP ---
+    let currentXMetric = 'weight'; 
+    let activeCategory = 'All';
+    let activeSubCategory = 'All';
+    let selectedManufacturers = new Set(); 
+    
+    sharedData.forEach(d => {
+        d.gwp_total = +d.gwp_total || 0;
+        d.weight = +d.weight || 0;
+        d.screen_size = +d.screen_size || 0;
+    });
+
+    // --- AXES ---
     const xAxisGroup = g.append("g").attr("transform", `translate(0, ${innerHeight})`);
     const yAxisGroup = g.append("g");
-    
-    const circlesGroup = g.append("g")
-        .attr("clip-path", "url(#chart-area-clip)"); 
-    
+
+    // Grilles (Grid lines)
+    const xGrid = g.append("g").attr("class", "axis-grid").attr("transform", `translate(0, ${innerHeight})`);
+    const yGrid = g.append("g").attr("class", "axis-grid");
+
+    // Labels Axes (Plus modernes)
     const xLabel = g.append("text")
         .attr("y", innerHeight + 40)
         .attr("x", innerWidth / 2)
         .attr("text-anchor", "middle")
-        .classed("axis-label", true);
+        .style("font-family", "Inter, sans-serif")
+        .style("font-size", "11px")
+        .style("font-weight", "600")
+        .style("fill", "#94a3b8")
+        .style("letter-spacing", "0.5px")
+        .text("POIDS (KG)");
 
     const yLabel = g.append("text")
-        .attr("y", -60)
+        .attr("y", -35)
         .attr("x", -innerHeight / 2)
         .attr("transform", "rotate(-90)")
         .attr("text-anchor", "middle")
-        .attr("dy", "1em")
-        .style("font-weight", "bold")
-        .text("GWP Total (kgCO2eq)");
+        .style("font-family", "Inter, sans-serif")
+        .style("font-size", "11px")
+        .style("font-weight", "600")
+        .style("fill", "#94a3b8")
+        .style("letter-spacing", "0.5px")
+        .text("IMPACT CO2 (KG)");
 
-    g.append("text")
-        .attr("x", innerWidth / 2)
-        .attr("y", -20)
-        .attr("text-anchor", "middle")
-        .style("font-size", "18px")
-        .style("font-weight", "bold")
-        .text("Impact Carbone vs Caractéristiques");
+    const circlesGroup = g.append("g"); // Pas de clip path pour laisser les cercles "respirer" sur les bords
 
-    let tooltip = d3.select("body").select(".tooltip");
+    // Tooltip
+    let tooltip = d3.select("body").select(".scatter-tooltip");
     if (tooltip.empty()) {
         tooltip = d3.select("body").append("div")
-            .attr("class", "tooltip")
+            .attr("class", "scatter-tooltip") // Le style est dans le CSS global
             .style("opacity", 0)
             .style("position", "absolute")
-            .style("background-color", "white")
-            .style("border", "1px solid #ccc")
-            .style("padding", "10px")
-            .style("border-radius", "5px")
             .style("pointer-events", "none")
-            .style("box-shadow", "0 0 5px rgba(0,0,0,0.2)");
+            .style("z-index", 10000);
     }
 
-    // --- ETAT ---
-    let currentXMetric = 'weight'; 
-    let currentCategory = 'All';
-    let currentSubCategory = 'All'; 
-    let availableManufacturers = []; 
-    let selectedManufacturers = new Set(); 
-    let data = [];
+    // --- CONTROLS (Selecteur X stylisé) ---
+    const parentDiv = d3.select(containerNode.parentNode);
+    parentDiv.selectAll(".scatter-controls").remove();
+    
+    const controlsDiv = parentDiv.insert("div", ":first-child")
+        .attr("class", "scatter-controls")
+        .style("margin-bottom", "15px")
+        .style("display", "flex")
+        .style("justify-content", "flex-end") // Alignement à droite
+        .style("align-items", "center");
 
-    let subCategorySelect;
-
-    d3.dsv(";", "data/data_cleaned/boavizta_data_cleaned.csv").then(rawData => {
-        rawData.forEach(d => {
-            d.gwp_total = +d.gwp_total;
-            d.weight = +d.weight;
-            d.screen_size = +d.screen_size;
-            d.subcategory = d.subcategory || ""; 
-        });
-
-        data = rawData;
-
-        d3.select("#scatter-controls").remove();
-        const controls = d3.select("body").insert("div", "#scatter2")
-            .attr("id", "scatter-controls")
-            .style("margin-bottom", "20px")
-            .style("margin-left", margin.left + "px")
-            .style("font-family", "sans-serif");
-
-        controls.append("span").text("Axe X : ").style("font-weight", "bold");
-        const xSelect = controls.append("select").on("change", function() {
+    const xSelect = controlsDiv.append("select")
+        .style("padding", "6px 10px")
+        .style("border-radius", "8px")
+        .style("border", "1px solid #cbd5e1")
+        .style("background-color", "#f8fafc")
+        .style("font-family", "Inter, sans-serif")
+        .style("font-size", "12px")
+        .style("color", "#334155")
+        .style("cursor", "pointer")
+        .on("change", function() {
             currentXMetric = this.value;
-            updateSubCategoryDropdown(); 
-            updateContext(); 
+            xLabel.text(currentXMetric === 'weight' ? "POIDS (KG)" : "ÉCRAN (POUCES)");
+            updateViz();
         });
-        xSelect.append("option").attr("value", "weight").text("Poids (kg)");
-        xSelect.append("option").attr("value", "screen_size").text("Taille d'écran (pouces)");
+    xSelect.append("option").attr("value", "weight").text("Axe X : Poids");
+    xSelect.append("option").attr("value", "screen_size").text("Axe X : Écran");
 
-        controls.append("span").html("&nbsp;&nbsp; | &nbsp;&nbsp;"); 
 
-        controls.append("span").text("Catégorie : ").style("font-weight", "bold");
-        const categorySelect = controls.append("select").on("change", function() {
-            currentCategory = this.value;
-            currentSubCategory = 'All';
-            updateSubCategoryDropdown(); 
-            updateContext(); 
-        });
-        const categories = ["All", ...new Set(data.map(d => d.category))];
-        categorySelect.selectAll("option")
-            .data(categories)
-            .enter().append("option")
-            .attr("value", d => d)
-            .text(d => d);
-
-        controls.append("span").html("&nbsp;&nbsp; | &nbsp;&nbsp;"); 
-
-        controls.append("span").text("Sous-catégorie : ").style("font-weight", "bold");
-        subCategorySelect = controls.append("select").on("change", function() {
-            currentSubCategory = this.value;
-            updateContext(); 
-        });
-        
-        // Initialisation
-        updateSubCategoryDropdown();
-        updateContext();
-
-    }).catch(error => {
-        console.error("Erreur CSV :", error);
-    });
-
-    function updateSubCategoryDropdown() {
-        
-        let validData = data;
-        if (currentCategory !== 'All') {
-            validData = validData.filter(d => d.category === currentCategory);
-        }
-
-        validData = validData.filter(d => !isNaN(d[currentXMetric]) && d[currentXMetric] > 0);
-
-        const subCategories = ["All", ...new Set(validData.map(d => d.subcategory).filter(d => d !== ""))].sort();
-
-        const options = subCategorySelect.selectAll("option")
-            .data(subCategories);
-
-        options.exit().remove();
-
-        options.enter().append("option")
-            .merge(options)
-            .attr("value", d => d)
-            .text(d => d);
-
-        if (!subCategories.includes(currentSubCategory)) {
-            currentSubCategory = "All";
-            subCategorySelect.property("value", "All");
-        } else {
-            subCategorySelect.property("value", currentSubCategory);
-        }
+    // --- UPDATE FUNCTION ---
+    function updateState(category, subCategory) {
+        activeCategory = category || 'All';
+        activeSubCategory = subCategory || 'All';
+        selectedManufacturers.clear(); 
+        updateViz();
     }
 
-
-    function updateContext() {
-        const validData = data.filter(d => {
-            const validMetric = !isNaN(d[currentXMetric]) && d[currentXMetric] > 0;
-            const validCategory = currentCategory === 'All' || d.category === currentCategory;
-            const validSubCategory = currentSubCategory === 'All' || d.subcategory === currentSubCategory;
-            
-            return validMetric && validCategory && validSubCategory;
+    function updateViz() {
+        // Filtrage
+        let filteredData = sharedData.filter(d => {
+            const hasMetric = d[currentXMetric] > 0;
+            const matchCat = (activeCategory === 'All' || activeCategory === 'Boavizta') ? true : d.category === activeCategory;
+            const matchSub = (activeSubCategory === 'All') ? true : d.subcategory === activeSubCategory;
+            return hasMetric && matchCat && matchSub;
         });
 
-        availableManufacturers = [...new Set(validData.map(d => d.manufacturer))].sort();
-        selectedManufacturers = new Set(availableManufacturers); 
+        const manufacturersInView = [...new Set(filteredData.map(d => d.manufacturer))].sort();
+        if (selectedManufacturers.size === 0 && manufacturersInView.length > 0) {
+            manufacturersInView.forEach(m => selectedManufacturers.add(m));
+        }
+        
+        const visibleData = filteredData.filter(d => selectedManufacturers.has(d.manufacturer));
 
-        render();
-    }
+        // Echelles
+        const xMax = d3.max(visibleData, d => d[currentXMetric]) || 10;
+        const yMax = d3.max(visibleData, d => d.gwp_total) || 100;
 
-    function render() {
-        let contextData = data.filter(d => {
-            const validMetric = !isNaN(d[currentXMetric]) && d[currentXMetric] > 0;
-            const validCategory = currentCategory === 'All' || d.category === currentCategory;
-            const validSubCategory = currentSubCategory === 'All' || d.subcategory === currentSubCategory;
+        const xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, innerWidth]);
+        const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([innerHeight, 0]);
+        
+        // Palette "Tableau10" moderne
+        const colorScale = d3.scaleOrdinal(d3.schemeTableau10);
 
-            return validMetric && validCategory && validSubCategory;
-        });
+        // Mise à jour Axes & Grilles
+        const xAxis = d3.axisBottom(xScale).ticks(5).tickSize(0).tickPadding(10);
+        const yAxis = d3.axisLeft(yScale).ticks(5).tickSize(0).tickPadding(10);
+        const xGridAxis = d3.axisBottom(xScale).ticks(5).tickSize(-innerHeight).tickFormat("");
+        const yGridAxis = d3.axisLeft(yScale).ticks(5).tickSize(-innerWidth).tickFormat("");
 
-        const visibleData = contextData.filter(d => selectedManufacturers.has(d.manufacturer));
+        xAxisGroup.transition().duration(750).call(xAxis).selectAll("text").attr("class", "axis-text");
+        yAxisGroup.transition().duration(750).call(yAxis).selectAll("text").attr("class", "axis-text");
+        
+        xGrid.transition().duration(750).call(xGridAxis).select(".domain").remove();
+        yGrid.transition().duration(750).call(yGridAxis).select(".domain").remove();
 
-        const xMax = d3.max(visibleData, d => d[currentXMetric]) || d3.max(contextData, d => d[currentXMetric]) || 10;
-        const yMax = d3.max(visibleData, d => d.gwp_total) || d3.max(contextData, d => d.gwp_total) || 100;
-
-        const xScale = d3.scaleLinear()
-            .domain([0, xMax]).nice() 
-            .range([0, innerWidth]);
-
-        const yScale = d3.scaleLinear()
-            .domain([0, yMax]).nice()
-            .range([innerHeight, 0]);
-
-        const colorScale = d3.scaleOrdinal(d3.schemeTableau10)
-            .domain(data.map(d => d.manufacturer)); 
-
-        xAxisGroup.transition().duration(1000).call(d3.axisBottom(xScale));
-        yAxisGroup.transition().duration(1000).call(d3.axisLeft(yScale));
-
-        xLabel.text(currentXMetric === 'weight' ? "Poids (kg)" : "Taille d'écran (pouces)");
-
+        // --- CERCLES ---
         const circles = circlesGroup.selectAll("circle")
-            .data(contextData, d => d.name + d.manufacturer);
+            .data(visibleData, d => d.name + "_" + d.manufacturer);
 
         circles.exit().transition().duration(500).attr("r", 0).remove();
 
-        circles.transition().duration(1000)
-            .attr("cx", d => xScale(d[currentXMetric]))
-            .attr("cy", d => yScale(d.gwp_total))
-            .attr("fill", d => colorScale(d.manufacturer))
-            .attr("opacity", d => selectedManufacturers.has(d.manufacturer) ? 0.9 : 0)
-            .attr("r", d => selectedManufacturers.has(d.manufacturer) ? 4 : 0) 
-            .attr("pointer-events", d => selectedManufacturers.has(d.manufacturer) ? "all" : "none");
-
-        circles.enter().append("circle")
+        const enter = circles.enter().append("circle")
             .attr("cx", d => xScale(d[currentXMetric]))
             .attr("cy", d => yScale(d.gwp_total))
             .attr("r", 0)
             .attr("fill", d => colorScale(d.manufacturer))
             .attr("stroke", "white")
-            .attr("stroke-width", 1)
-            .attr("opacity", 0)
-            .transition().duration(1000)
-            .attr("r", 4) 
-            .attr("opacity", d => selectedManufacturers.has(d.manufacturer) ? 0.9 : 0);
+            .attr("stroke-width", 1.5) // Bord blanc pour détacher les points
+            .style("cursor", "pointer")
+            .style("filter", "drop-shadow(0px 2px 3px rgba(0,0,0,0.1))"); // Ombre portée sur les points !
 
+        enter.merge(circles)
+            .transition().duration(750)
+            .attr("cx", d => xScale(d[currentXMetric]))
+            .attr("cy", d => yScale(d.gwp_total))
+            .attr("r", 6) // Points un peu plus gros
+            .attr("fill", d => colorScale(d.manufacturer))
+            .attr("opacity", 1);
+
+        // Interactions
         circlesGroup.selectAll("circle")
             .on("mouseover", function(event, d) {
-                if (!selectedManufacturers.has(d.manufacturer)) return;
-                
                 d3.select(this)
-                    .attr("stroke", "#333")
-                    .attr("stroke-width", 2)
-                    .attr("r", 6)
-                    .attr("opacity", 1);
-
-                tooltip.transition().duration(200).style("opacity", .9);
-                tooltip.html(`
-                    <strong>${d.manufacturer}</strong> - ${d.name}<br/>
-                    <span style="font-size:11px; color:#666">${d.category} / ${d.subcategory}</span><br/>
-                    GWP: ${d.gwp_total} kgCO2eq<br/> 
-                    ${currentXMetric === 'weight' ? 'Poids: ' + d.weight + ' kg' : 'Écran: ' + d.screen_size + '"'}
-                `)
-                .style("left", (event.pageX + 10) + "px")
-                .style("top", (event.pageY - 28) + "px");
+                    .transition().duration(200)
+                    .attr("r", 10)
+                    .attr("stroke", "#333");
+                
+                tooltip.style("opacity", 1)
+                    .html(`
+                        <div style="font-weight:700; margin-bottom:4px; color:${colorScale(d.manufacturer)}">${d.manufacturer}</div>
+                        <div style="font-size:13px; margin-bottom:4px;">${d.name}</div>
+                        <div style="font-size:11px; color:#64748b;">
+                            GWP: <b>${Math.round(d.gwp_total)}</b> kgCO₂e<br/>
+                            ${currentXMetric === 'weight' ? 'Poids: ' + d.weight + ' kg' : 'Écran: ' + d.screen_size + '"'}
+                        </div>
+                    `)
+                    .style("left", (event.pageX + 15) + "px")
+                    .style("top", (event.pageY - 28) + "px");
+                    
+                if (onHoverCallback) onHoverCallback(d.name, true);
             })
             .on("mouseout", function(event, d) {
-                if (!selectedManufacturers.has(d.manufacturer)) return;
-                
                 d3.select(this)
-                    .attr("stroke", "white")
-                    .attr("stroke-width", 1)
-                    .attr("r", 4)
-                    .attr("opacity", 0.9);
-
-                tooltip.transition().duration(500).style("opacity", 0);
+                    .transition().duration(200)
+                    .attr("r", 6)
+                    .attr("stroke", "white");
+                tooltip.style("opacity", 0);
+                if (onHoverCallback) onHoverCallback(d.name, false);
             });
 
-        renderLegend(colorScale);
+        drawModernLegend(manufacturersInView, colorScale);
     }
 
-    function renderLegend(colorScale) {
-        svg.selectAll(".legend").remove();
+    // --- LEGENDE MODERNE (CHIPS) ---
+    function drawModernLegend(manufacturers, colorScale) {
+        g.selectAll(".legend-group").remove();
+        const legendGroup = g.append("g")
+            .attr("class", "legend-group")
+            .attr("transform", `translate(0, ${innerHeight + 60})`);
 
-        const legend = svg.append("g")
-            .attr("class", "legend")
-            .attr("transform", `translate(${width - margin.right + 20}, ${margin.top})`);
+        let xOffset = 0;
+        let yOffset = 0;
+        const maxRowWidth = innerWidth;
+        const spacing = 10;
+        const rowHeight = 30;
 
-        const tempText = svg.append("text").style("font-size", "12px").style("visibility", "hidden");
-        let maxItemTextWidth = 0;
-        availableManufacturers.forEach(d => {
-            tempText.text(d);
-            const w = tempText.node().getBBox().width;
-            if (w > maxItemTextWidth) maxItemTextWidth = w;
+        manufacturers.forEach((brand) => {
+            const isActive = selectedManufacturers.has(brand);
+            
+            // Groupe temporaire pour mesurer la largeur du texte
+            const tempText = legendGroup.append("text")
+                .style("font-family", "Inter, sans-serif").style("font-size", "11px").style("font-weight", "600")
+                .text(brand);
+            const textWidth = tempText.node().getComputedTextLength();
+            tempText.remove();
+
+            const chipWidth = textWidth + 24; // Padding
+
+            // Retour à la ligne si ça dépasse
+            if (xOffset + chipWidth > maxRowWidth) {
+                xOffset = 0;
+                yOffset += rowHeight + 8;
+            }
+
+            const chip = legendGroup.append("g")
+                .attr("class", "legend-chip")
+                .attr("transform", `translate(${xOffset}, ${yOffset})`)
+                .style("cursor", "pointer")
+                .on("click", () => {
+                    if (selectedManufacturers.has(brand)) selectedManufacturers.delete(brand);
+                    else selectedManufacturers.add(brand);
+                    updateViz();
+                });
+
+            // Fond du "Chip"
+            chip.append("rect")
+                .attr("width", chipWidth)
+                .attr("height", 24)
+                .attr("rx", 12) // Bords très arrondis
+                .attr("fill", isActive ? colorScale(brand) : "#f1f5f9")
+                .attr("stroke", isActive ? "none" : "#cbd5e1")
+                .style("transition", "all 0.2s");
+
+            // Texte
+            chip.append("text")
+                .attr("x", chipWidth / 2)
+                .attr("y", 16)
+                .attr("text-anchor", "middle")
+                .text(brand)
+                .style("font-family", "Inter, sans-serif")
+                .style("font-size", "10px")
+                .style("font-weight", "600")
+                .style("fill", isActive ? "#fff" : "#64748b")
+                .style("pointer-events", "none"); // Empêche le clic sur le texte
+
+            xOffset += chipWidth + spacing;
         });
-        tempText.remove();
-
-        const legendListWidth = 14 + 6 + 10 + 5 + maxItemTextWidth;
-
-        const btnGroup = legend.append("g")
-            .style("cursor", "pointer")
-            .on("click", () => {
-                if (selectedManufacturers.size === availableManufacturers.length) {
-                     selectedManufacturers.clear();
-                } else {
-                     selectedManufacturers = new Set(availableManufacturers);
-                }
-                render();
-            })
-            .on("mouseover", function() {
-                d3.select(this).select("rect").attr("fill", "#e0e0e0").attr("stroke", "#666");
-            })
-            .on("mouseout", function() {
-                d3.select(this).select("rect").attr("fill", "#f5f5f5").attr("stroke", "#999");
-            });
-
-        const btnText = btnGroup.append("text")
-            .text("Tout Sélectionner / Désélectionner")
-            .style("font-weight", "bold")
-            .style("fill", "#333")
-            .style("font-size", "13px")
-            .attr("text-anchor", "middle")
-            .attr("alignment-baseline", "middle")
-            .attr("y", 12.5);
-
-        const btnTextWidth = btnText.node().getBBox().width;
-        const btnPadding = 20; 
-        const btnWidth = btnTextWidth + btnPadding;
-        const btnHeight = 25;
-
-        btnText.attr("x", btnWidth / 2);
-
-        btnGroup.insert("rect", "text")
-            .attr("width", btnWidth)
-            .attr("height", btnHeight)
-            .attr("rx", 5)
-            .attr("fill", "#f5f5f5")
-            .attr("stroke", "#999")
-            .attr("stroke-width", 1);
-
-        const buttonXOffset = (legendListWidth - btnWidth) / 2;
-        btnGroup.attr("transform", `translate(${buttonXOffset}, 0)`);
-
-        const legendItems = legend.selectAll(".legend-item")
-            .data(availableManufacturers)
-            .enter().append("g")
-            .attr("class", "legend-item")
-            .attr("transform", (d, i) => `translate(0, ${i * 25 + btnHeight + 15})`) 
-            .style("cursor", "pointer")
-            .on("click", function(event, d) {
-                if (selectedManufacturers.has(d)) {
-                    selectedManufacturers.delete(d);
-                } else {
-                    selectedManufacturers.add(d);
-                }
-                render(); 
-            });
-
-        legendItems.append("rect")
-            .attr("width", 14)
-            .attr("height", 14)
-            .attr("rx", 2)
-            .attr("fill", "white")
-            .attr("stroke", "#555");
-
-        legendItems.append("path")
-            .attr("d", "M 3 7 L 6 10 L 11 3")
-            .attr("fill", "none")
-            .attr("stroke", "black")
-            .attr("stroke-width", 2)
-            .style("display", d => selectedManufacturers.has(d) ? "block" : "none");
-
-        legendItems.append("rect")
-            .attr("x", 20)
-            .attr("y", 2)
-            .attr("width", 10)
-            .attr("height", 10)
-            .attr("fill", d => colorScale(d))
-            .style("opacity", d => selectedManufacturers.has(d) ? 1 : 0.3);
-
-        legendItems.append("text")
-            .attr("x", 35)
-            .attr("y", 10)
-            .text(d => d)
-            .style("font-size", "12px")
-            .attr("alignment-baseline", "middle")
-            .style("fill", d => selectedManufacturers.has(d) ? "black" : "#aaa");
     }
 
-})();
+    updateViz();
+    return { update: updateState };
+};

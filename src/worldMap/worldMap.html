@@ -17,7 +17,36 @@
             color: #eee;
             margin: 0;
             padding: 20px;
+            /* Pour gérer le positionnement absolu du bouton retour si besoin */
+            position: relative; 
         }
+
+        /* --- NOUVEAU STYLE POUR LE BOUTON RETOUR --- */
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            text-decoration: none;
+            color: #888;
+            border: 1px solid #333;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            background: #111;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 100; 
+        }
+
+        .back-btn:hover {
+            color: #ffd700;
+            border-color: #ffd700;
+            background: #222;
+            transform: translateX(-3px); /* Petit effet de mouvement vers la gauche */
+        }
+        /* ------------------------------------------ */
 
         h1 {
             text-align: center;
@@ -25,6 +54,8 @@
             color: #ffd700;
             text-transform: uppercase;
             letter-spacing: 2px;
+            /* Marge du haut pour éviter que le titre ne touche le haut de page */
+            margin-top: 10px; 
         }
 
         .legend-container {
@@ -123,6 +154,9 @@
     </style>
 </head>
 <body>
+
+    <a href="../../index.html" class="back-btn">
+        <span>&#8592;</span> Retour </a>
 
     <h1>Flux d'assemblage et de distribution</h1>
     
