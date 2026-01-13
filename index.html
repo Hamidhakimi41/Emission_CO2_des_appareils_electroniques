@@ -1,147 +1,109 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <title>Visualisation Green IT</title>
-
-  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&display=swap" rel="stylesheet">
 
-  <!-- CSS (garde ton fichier) -->
-  <link rel="stylesheet" href="styles.css">
 
-  <!-- D3 -->
+  <meta charset="UTF-8">
+  <title>Visualisation Green IT</title>
+
   <script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  :root {
+    --bg-color: #f8fafc;
+    --card-bg: #ffffff;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --accent: #10b981; /* Un vert moderne */
+    --font-main: 'Inter', sans-serif;
+    --font-title: 'Montserrat', sans-serif;
+  }
 
-  <!-- Styles UNIQUES pour la page (pas de .pack-layout en double ailleurs) -->
-  <style>
-    :root {
-      --bg-color: #f8fafc;
-      --card-bg: #ffffff;
-      --text-primary: #1e293b;
-      --text-secondary: #64748b;
-      --font-main: 'Inter', sans-serif;
-      --font-title: 'Montserrat', sans-serif;
-    }
+  body {
+    background-color: var(--bg-color);
+    font-family: var(--font-main);
+    color: var(--text-primary);
+    margin: 0;
+    padding: 40px;
+  }
 
-    body {
-      background: var(--bg-color);
-      font-family: var(--font-main);
-      color: var(--text-primary);
-      margin: 0;
-      padding: 24px;
-    }
+  h1, h2, h3 {
+    font-family: var(--font-title);
+    color: #0f172a;
+    font-weight: 700;
+  }
 
-    h1, h2 {
-      font-family: var(--font-title);
-      color: #0f172a;
-      font-weight: 700;
-      margin: 0 0 16px 0;
-    }
-    h2 { margin-top: 24px; }
+  /* Style des "Cartes" (Panneaux blancs) */
+  .pack-layout {
+    display: grid;
+    grid-template-columns: 1fr 380px; /* Colonne droite fixe */
+    gap: 24px;
+    align-items: start;
+  }
 
-    /* ✅ Prend la largeur de la fenêtre (pas de max-width qui bloque) */
-    .page-wrapper {
-      width: 100%;
-      max-width: none;
-      margin: 0;
-    }
-
-    /* ✅ Grille stable : bubble garde une largeur mini, la droite s’élargit */
-    .pack-layout {
-      display: grid;
-      grid-template-columns: minmax(760px, 1fr) minmax(420px, 720px);
-      gap: 24px;
-      align-items: start;
-    }
-
-    /* Cartes */
-    .chart-card {
-      background: var(--card-bg);
-      border-radius: 20px;
-      border: 1px solid #e2e8f0;
-      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.01);
-      padding: 20px;
-    }
-
-    /* Colonne droite sticky */
-    .pack-right {
-      position: sticky;
-      top: 16px;
-    }
-
-    /* Responsive */
-    @media (max-width: 1200px) {
-      .pack-layout { grid-template-columns: 1fr; }
-      .pack-right { position: static; }
-    }
-
-    /* Tooltip moderne */
-    #pack-tooltip, .scatter-tooltip {
-      background: rgba(255,255,255,0.9) !important;
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(255,255,255,0.5) !important;
-      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1) !important;
-      border-radius: 8px !important;
-      color: #334155 !important;
-      font-size: 12px !important;
-    }
-  </style>
+  /* Conteneur générique pour les graphiques */
+  .chart-card {
+    background: var(--card-bg);
+    border-radius: 20px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+    border: 1px solid #e2e8f0;
+    padding: 24px;
+    overflow: hidden;
+  }
+  
+  /* Tooltip moderne "Glassmorphism" */
+  #pack-tooltip, .scatter-tooltip {
+    background: rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.5) !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+    border-radius: 8px !important;
+    color: #334155 !important;
+    font-size: 12px !important;
+  }
+</style>
 </head>
 
 <body>
-  <div class="page-wrapper">
-    <h1>Projet Data Visualisation – Green IT</h1>
-    <h2>Bubble chart – catégories / appareils</h2>
 
-    <div class="pack-layout">
-      <!-- ✅ Bubble -->
-      <div class="pack-left chart-card">
-        <div id="pack"></div>
-      </div>
+  <h1>Projet Data Visualisation – Green IT</h1>
 
-      <!-- ✅ Panel + Scatter -->
-      <aside class="pack-right">
-        <div class="chart-card" id="topCategoriesCard">
-          <h3 style="margin:0 0 12px 0; font-family: var(--font-title);">Top catégories</h3>
-          <div id="panelBars"></div>
-        </div>
-
-        <div class="chart-card" id="scatterCard" style="margin-top:16px;">
-          <h3 style="margin:0 0 12px 0; font-family: var(--font-title);">Distribution &amp; Marques</h3>
-          <svg id="scatter" style="width:100%; display:block;"></svg>
-        </div>
-      </aside>
-    </div>
-
-    <h2>Cartographie des flux</h2>
-    <div style="padding: 30px; background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; text-align: center; margin-bottom: 50px;">
-      <p style="margin-bottom: 20px; color: #555;">
-        Accéder à la vue comparative des flux d'assemblage et de distribution par constructeur (écrans scindés).
-      </p>
-
-      <a href="src/worldMap/worldMap.html" target="_blank" style="
-        display: inline-block;
-        background-color: #007bff;
-        color: white;
-        padding: 14px 28px;
-        text-decoration: none;
-        border-radius: 6px;
-        font-weight: bold;
-        font-family: 'Montserrat', sans-serif;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        transition: background-color 0.2s;
-      ">
-        Ouvrir la carte des flux
-      </a>
-    </div>
+  <h2>Bubble chart – catégories / appareils</h2>
+<div class="pack-layout">
+  <div class="pack-left">
+    <div id="pack"></div>
+  </div>
   </div>
 
-  <!-- Scripts -->
-  <script src="src/charts/scatterv2.js"></script>
-  <script src="src/charts/packed.js"></script>
-</body>
+<script src="src/charts/scatterv2.js"></script>
+<script src="src/charts/packed.js"></script>
+
+<h2>Cartographie des flux</h2>
+  
+  <div style="padding: 30px; background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; text-align: center; margin-bottom: 50px;">
+      <p style="margin-bottom: 20px; color: #555;">
+          Accéder à la vue comparative des flux d'assemblage et de distribution par constructeur (écrans scindés).
+      </p>
+      
+      <a href="src/worldMap/worldMap.html" target="_blank" style="
+          display: inline-block;
+          background-color: #007bff; 
+          color: white; 
+          padding: 14px 28px; 
+          text-decoration: none; 
+          border-radius: 6px; 
+          font-weight: bold;
+          font-family: 'Montserrat', sans-serif;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+          transition: background-color 0.2s;
+      ">
+           Ouvrir la carte des flux
+      </a>
+  </div>
+
+ </body>
 </html>
