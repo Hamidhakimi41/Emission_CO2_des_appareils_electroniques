@@ -38,6 +38,13 @@ window.initScatter = function(containerSelector, sharedData, onHoverCallback) {
         d.screen_size = +d.screen_size || 0;
     });
 
+    // On récupère TOUS les fabricants uniques possibles dès le départ
+    const allManufacturers = [...new Set(sharedData.map(d => d.manufacturer))].sort();
+    
+    // On crée l'échelle une seule fois avec un domaine fixe
+    const colorScale = d3.scaleOrdinal(d3.schemeTableau10)
+        .domain(allManufacturers);
+
     // --- AXES ---
     const xAxisGroup = g.append("g").attr("transform", `translate(0, ${innerHeight})`);
     const yAxisGroup = g.append("g");
@@ -142,9 +149,6 @@ window.initScatter = function(containerSelector, sharedData, onHoverCallback) {
 
         const xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, innerWidth]);
         const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([innerHeight, 0]);
-        
-        // Palette "Tableau10" moderne
-        const colorScale = d3.scaleOrdinal(d3.schemeTableau10);
 
         // Mise à jour Axes & Grilles
         const xAxis = d3.axisBottom(xScale).ticks(5).tickSize(0).tickPadding(10);
