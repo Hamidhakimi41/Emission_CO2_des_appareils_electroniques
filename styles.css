@@ -24,10 +24,11 @@ body {
   
   .pack-layout {
     display: grid;
-    grid-template-columns: 1fr 320px;
+    grid-template-columns: 1fr minmax(380px, 520px);
     gap: 16px;
     align-items: start;
   }
+
   
   .pack-left {
     padding: 16px;
