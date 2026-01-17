@@ -33,10 +33,9 @@ window.initScatter = function(containerSelector, sharedData, onHoverCallback) {
     let selectedManufacturers = new Set(); 
     
     sharedData.forEach(d => {
-        d.manufacturer = d.manufacturername;
         d.gwp_total = +d.gwp_total || 0;
         d.weight = +d.weight || 0;
-        d.lifetime = +d.lifetime || 0; // CHANGÉ: screen_size -> lifetime
+        d.screen_size = +d.screen_size || 0;
     });
 
     // On récupère TOUS les fabricants uniques possibles dès le départ
@@ -113,11 +112,11 @@ window.initScatter = function(containerSelector, sharedData, onHoverCallback) {
         .style("cursor", "pointer")
         .on("change", function() {
             currentXMetric = this.value;
-            xLabel.text(currentXMetric === 'weight' ? "POIDS (KG)" : "DURÉE DE VIE (ANNÉES)"); // CHANGÉ
+            xLabel.text(currentXMetric === 'weight' ? "POIDS (KG)" : "ÉCRAN (POUCES)");
             updateViz();
         });
     xSelect.append("option").attr("value", "weight").text("Axe X : Poids");
-    xSelect.append("option").attr("value", "lifetime").text("Axe X : Durée de vie"); // CHANGÉ
+    xSelect.append("option").attr("value", "screen_size").text("Axe X : Écran");
 
 
     // --- UPDATE FUNCTION ---
@@ -201,7 +200,7 @@ window.initScatter = function(containerSelector, sharedData, onHoverCallback) {
                         <div style="font-size:13px; margin-bottom:4px;">${d.name}</div>
                         <div style="font-size:11px; color:#64748b;">
                             GWP: <b>${Math.round(d.gwp_total)}</b> kgCO₂e<br/>
-                            ${currentXMetric === 'weight' ? 'Poids: ' + d.weight + ' kg' : 'Durée de vie: ' + d.lifetime + ' ans'} <!-- CHANGÉ -->
+                            ${currentXMetric === 'weight' ? 'Poids: ' + d.weight + ' kg' : 'Écran: ' + d.screen_size + '"'}
                         </div>
                     `)
                     .style("left", (event.pageX + 15) + "px")
