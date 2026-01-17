@@ -40,7 +40,8 @@ window.initScatter = function(containerSelector, sharedData, onHoverCallback) {
 
     // NOUVEL AXE X: durée de vie (colonne "lifetime" dans tes données)
     d.lifetime = +d.lifetime || 0;
-
+    // FIX: garder le reste du code (couleurs/legend) sans rien toucher
+    d.manufacturer = d.manufacturer || d.manufacturername;
     // (Optionnel) si tu veux garder screen_size ailleurs, on le convertit quand même
     d.screen_size = +d.screen_size || 0;
   });
