@@ -33,6 +33,7 @@ window.initScatter = function(containerSelector, sharedData, onHoverCallback) {
     let selectedManufacturers = new Set(); 
     
     sharedData.forEach(d => {
+        d.manufacturer = d.manufacturername;
         d.gwp_total = +d.gwp_total || 0;
         d.weight = +d.weight || 0;
         d.lifetime = +d.lifetime || 0; // CHANGÉ: screen_size -> lifetime
