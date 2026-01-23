@@ -7,108 +7,180 @@
   <link rel="stylesheet" href="styles.css">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&display=swap" rel="stylesheet">
 
-
   <meta charset="UTF-8">
   <title>Visualisation Green IT</title>
 
   <script src="https://d3js.org/d3.v7.min.js"></script>
-<style>
-  :root {
-    --bg-color: #f8fafc;
-    --card-bg: #ffffff;
-    --text-primary: #1e293b;
-    --text-secondary: #64748b;
-    --accent: #10b981; 
-    --font-main: 'Inter', sans-serif;
-    --font-title: 'Montserrat', sans-serif;
-  }
-
-  body {
-    background-color: var(--bg-color);
-    font-family: var(--font-main);
-    color: var(--text-primary);
-    margin: 0;
-    padding: 40px;
-  }
-
-  h1, h2, h3 {
-    font-family: var(--font-title);
-    color: #0f172a;
-    font-weight: 700;
-  }
-
-  /* Style des "Cartes" (Panneaux blancs) */
-  .pack-layout {
-    display: grid;
-    grid-template-columns: 1fr 380px; /* Colonne droite fixe */
-    gap: 24px;
-    align-items: start;
-  }
-
-  /* Conteneur générique pour les graphiques */
-  .chart-card {
-    background: var(--card-bg);
-    border-radius: 20px;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
-    border: 1px solid #e2e8f0;
-    padding: 24px;
-    overflow: hidden;
-  }
   
-  /* Tooltip moderne "Glassmorphism" */
-  #pack-tooltip, .scatter-tooltip {
-    background: rgba(255, 255, 255, 0.9) !important;
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,0.5) !important;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
-    border-radius: 8px !important;
-    color: #334155 !important;
-    font-size: 12px !important;
-  }
-</style>
+  <style>
+    :root {
+      --bg-color: #f8fafc;
+      --card-bg: #ffffff;
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --accent: #10b981; 
+      --active-tab: #0f172a;
+      --font-main: 'Inter', sans-serif;
+      --font-title: 'Montserrat', sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      font-family: var(--font-main);
+      color: var(--text-primary);
+      margin: 0;
+      padding: 40px;
+    }
+
+    h1, h2, h3 {
+      font-family: var(--font-title);
+      color: #0f172a;
+      font-weight: 700;
+    }
+
+    /* --- STYLE DES ONGLETS  --- */
+    .tabs-nav {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 30px;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 10px;
+    }
+
+    .tab-btn {
+        background: none;
+        border: none;
+        font-family: var(--font-title);
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        cursor: pointer;
+        padding: 10px 20px;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .tab-btn:hover {
+        background-color: #e2e8f0;
+        color: var(--text-primary);
+    }
+
+    .tab-btn.active {
+        background-color: var(--active-tab);
+        color: white;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    /* GESTION DE L'AFFICHAGE DES VUES */
+    .view-content {
+        display: none; /* Caché par défaut */
+        animation: fadeIn 0.4s ease-in-out;
+    }
+
+    .view-content.active-view {
+        display: block; /* Affiché si actif */
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* --- STYLE POUR LA CARTE --- */
+    .map-frame {
+        width: 100%;
+        height: 85vh; /* Prend presque toute la hauteur de l'écran */
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        background-color: #000; /* Fond noir pour la carte */
+    }
+
+    .pack-layout {
+      display: grid;
+      grid-template-columns: 1fr 380px; 
+      gap: 24px;
+      align-items: start;
+    }
+
+    .chart-card {
+      background: var(--card-bg);
+      border-radius: 20px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+      border: 1px solid #e2e8f0;
+      padding: 24px;
+      overflow: hidden;
+    }
+    
+    #pack-tooltip, .scatter-tooltip {
+      background: rgba(255, 255, 255, 0.9) !important;
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.5) !important;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+      border-radius: 8px !important;
+      color: #334155 !important;
+      font-size: 12px !important;
+    }
+  </style>
 </head>
 
 <body>
 
   <h1>Impact environnemental des produits électroniques</h1>
 
-  <h2>Bubble chart – catégories / appareils</h2>
-<div class="pack-layout">
-  <div class="pack-left">
-    <div id="pack"></div>
-  </div>
+  <div class="tabs-nav">
+      <button class="tab-btn active" onclick="switchTab('dashboard')">📊 Dashboard</button>
+      <button class="tab-btn" onclick="switchTab('map')">🌍 Cartographie des Flux</button>
   </div>
 
-<script src="src/charts/scatterv2.js"></script>
-<script src="src/charts/packed.js"></script>
-
-<div class="chart-container" style="width: 100%; margin-top: 50px;">
-    <div id="amortization-chart"></div>
-</div>
-<script src="src/charts/amortization.js"></script>
-
-<h2>Cartographie des flux</h2>
-  
-  <div style="padding: 30px; background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; text-align: center; margin-bottom: 50px;">
-      <p style="margin-bottom: 20px; color: #555;">
-          Accéder à la vue comparative des flux d'assemblage et de distribution par constructeur.
-      </p>
+  <div id="view-dashboard" class="view-content active-view">
       
-      <a href="src/worldMap/worldMap.html" target="_blank" style="
-          display: inline-block;
-          background-color: #007bff; 
-          color: white; 
-          padding: 14px 28px; 
-          text-decoration: none; 
-          border-radius: 6px; 
-          font-weight: bold;
-          font-family: 'Montserrat', sans-serif;
-          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-          transition: background-color 0.2s;
-      ">
-           Ouvrir la carte des flux
-      </a>
+      <h2>Bubble chart – catégories / appareils</h2>
+      <div class="pack-layout">
+        <div class="pack-left">
+          <div id="pack"></div>
+        </div>
+      </div>
+
+      <script src="src/charts/scatterv2.js"></script>
+      <script src="src/charts/packed.js"></script>
+
+      <div class="chart-container" style="width: 100%; margin-top: 50px;">
+          <div id="amortization-chart"></div>
+      </div>
+      <script src="src/charts/amortization.js"></script>
+
   </div>
 
- </body>
+  <div id="view-map" class="view-content">
+      <iframe src="src/worldMap/worldMap.html" class="map-frame" title="Carte des flux"></iframe>
+  </div>
+
+
+  <script>
+    function switchTab(tabName) {
+        // 1. Cacher toutes les vues
+        document.querySelectorAll('.view-content').forEach(el => {
+            el.classList.remove('active-view');
+        });
+        
+        // 2. Désactiver tous les boutons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+
+        // 3. Afficher la vue demandée
+        document.getElementById('view-' + tabName).classList.add('active-view');
+
+        // 4. Activer le bouton cliqué (On cherche le bouton qui a le bon onclick)
+        const buttons = document.querySelectorAll('.tab-btn');
+        buttons.forEach(btn => {
+            if(btn.getAttribute('onclick').includes(tabName)) {
+                btn.classList.add('active');
+            }
+        });
+    }
+  </script>
+
+</body>
 </html>
