@@ -1,7 +1,6 @@
 # Projet Visualisation Green IT
 
 
-
 ## Membres du Groupe
 
 Groupe 16
@@ -24,3 +23,8 @@ Deux manières de lancer :
 - /data contient les données originales et les données traitées
 - /src/charts les fichiers pour le bubble chart, le scatter plot et la courbe
 - /src/worldMap contient les fichiers pour la carte de flux
+
+## Liens des documents de cadrage et avancement
+
+- Avancement : https://forge.univ-lyon1.fr/p2308199/data_visualisation_grp10/-/wikis/Avancement
+- Cadrage : https://forge.univ-lyon1.fr/p2308199/data_visualisation_grp10/-/wikis/Document-de-Cadrage
