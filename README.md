@@ -6,10 +6,10 @@
 
 Groupe 16
 
-KANE Ousmane
-BRUNIQUEL Thomas
-TON Hoang Chi
-HAMID Haki Mahamat Zene
+- KANE Ousmane
+- BRUNIQUEL Thomas
+- TON Hoang Chi
+- HAMID Haki Mahamat Zene
 
 ## Sujet
 
@@ -21,6 +21,6 @@ Deux manières de lancer :
 - soit ouvrir le projet sur VSCode et utiliser l'extension live server pour ouvrir la page index.html à la racine du projet
 
 ## Contenu des dossiers
-/data contient les données originales et les données traitées
-/src/charts les fichiers pour le bubble chart, le scatter plot et la courbe
-/src/worldMap contient les fichiers pour la carte de flux
+- /data contient les données originales et les données traitées
+- /src/charts les fichiers pour le bubble chart, le scatter plot et la courbe
+- /src/worldMap contient les fichiers pour la carte de flux
